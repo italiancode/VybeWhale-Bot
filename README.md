@@ -19,17 +19,20 @@ A real-time Telegram bot for tracking crypto whale activity, smart wallets, and 
 ## Setup
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/italiancode/VybeWhale-Bot.git
 cd VybeWhale-Bot
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Configure environment variables:
+
 - Copy `.env.example` to `.env`
 - Update with your credentials:
   - TELEGRAM_BOT_TOKEN (from @BotFather)
@@ -37,11 +40,13 @@ npm install
   - REDIS_URL (optional)
 
 4. Start the bot:
+
 ```bash
 npm start
 ```
 
 For development with auto-reload:
+
 ```bash
 npm run dev
 ```
@@ -49,26 +54,31 @@ npm run dev
 ## Available Commands
 
 ### Token and Whale Tracking
+
 - `/token [ADDRESS]` - Get detailed token information and metrics
 - `/whale [ADDRESS]` - View recent whale transactions for a token
 
 ### Wallet Management
+
 - `/trackwallet [ADDRESS]` - Start tracking a wallet address
 - `/untrackwallet [ADDRESS]` - Stop tracking a wallet address
 - `/listwallets` - View all wallets you're currently tracking
 
 ### Alert Configuration
+
 - `/setthreshold [AMOUNT]` - Set minimum USD value for whale alerts
 - `/enablealerts [TYPE]` - Enable specific types of alerts
 - `/disablealerts [TYPE]` - Disable specific types of alerts
 
 ### General
+
 - `/start` - Initialize the bot and get welcome message
 - `/help` - Display available commands and usage information
 
 ## Alert Types
 
 The bot supports various alert types that can be enabled/disabled:
+
 - Whale Transactions
 - Wallet Activity
 - Price Changes
@@ -86,10 +96,4 @@ The bot supports various alert types that can be enabled/disabled:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support & Contact
-
 Built with ❤️ by Agbaka Daniel Ugonna Matthew (Big Dreams Web3)
-
-For support:
-- Create an issue on GitHub
-- Contact [@EricVybe](https://t.me/EricVybe) on Telegram for API related questions  
