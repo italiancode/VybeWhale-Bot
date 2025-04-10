@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vybe API Tester</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .json-response {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .form-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">Vybe API Tester</h1>
+
+        <!-- Token Info Section -->
+        <div class="form-section">
+            <h3>Get Token Info</h3>
+            <div class="mb-3">
+                <label for="mintAddress" class="form-label">Mint Address</label>
+                <input type="text" class="form-control" id="mintAddress">
+            </div>
+            <button onclick="getTokenInfo()" class="btn btn-primary">Get Token Info</button>
+            <div class="mt-3">
+                <h5>Response:</h5>
+                <div id="tokenInfoResponse" class="json-response"></div>
+            </div>
+        </div>
+
+        <!-- Whale Transactions Section -->
+        <div class="form-section">
+            <h3>Get Whale Transactions</h3>
+            <div class="mb-3">
+                <label for="whaleMintAddress" class="form-label">Mint Address</label>
+                <input type="text" class="form-control" id="whaleMintAddress">
+            </div>
+            <div class="mb-3">
+                <label for="minUsdAmount" class="form-label">Minimum USD Amount</label>
+                <input type="number" class="form-control" id="minUsdAmount">
+            </div>
+            <button onclick="getWhaleTransactions()" class="btn btn-primary">Get Whale Transactions</button>
+            <div class="mt-3">
+                <h5>Response:</h5>
+                <div id="whaleTransactionsResponse" class="json-response"></div>
+            </div>
+        </div>
+
+        <!-- Wallet Token Balance Section -->
+        <div class="form-section">
+            <h3>Get Wallet Token Balance</h3>
+            <div class="mb-3">
+                <label for="ownerAddress" class="form-label">Owner Address</label>
+                <input type="text" class="form-control" id="ownerAddress">
+            </div>
+            <button onclick="getWalletTokenBalance()" class="btn btn-primary">Get Wallet Token Balance</button>
+            <div class="mt-3">
+                <h5>Response:</h5>
+                <div id="walletBalanceResponse" class="json-response"></div>
+            </div>
+        </div>
+
+        <!-- Top Holders Section -->
+        <div class="form-section">
+            <h3>Get Token Top Holders</h3>
+            <div class="mb-3">
+                <label for="topHoldersMintAddress" class="form-label">Mint Address</label>
+                <input type="text" class="form-control" id="topHoldersMintAddress">
+            </div>
+            <button onclick="getTokenTopHolders()" class="btn btn-primary">Get Top Holders</button>
+            <div class="mt-3">
+                <h5>Response:</h5>
+                <div id="topHoldersResponse" class="json-response"></div>
+            </div>
+        </div>
+
+        <!-- Transfer Volume Section -->
+        <div class="form-section">
+            <h3>Get Token Transfer Volume</h3>
+            <div class="mb-3">
+                <label for="transferVolumeMintId" class="form-label">Mint ID</label>
+                <input type="text" class="form-control" id="transferVolumeMintId">
+            </div>
+            <div class="mb-3">
+                <label for="startTime" class="form-label">Start Time</label>
+                <input type="datetime-local" class="form-control" id="startTime">
+            </div>
+            <div class="mb-3">
+                <label for="endTime" class="form-label">End Time</label>
+                <input type="datetime-local" class="form-control" id="endTime">
+            </div>
+            <button onclick="getTokenTransferVolume()" class="btn btn-primary">Get Transfer Volume</button>
+            <div class="mt-3">
+                <h5>Response:</h5>
+                <div id="transferVolumeResponse" class="json-response"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

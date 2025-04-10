@@ -1,0 +1,22 @@
+{
+  "name": "vybewhale-bot",
+  "version": "1.0.0",
+  "description": "A Telegram bot for crypto whale tracking and alerts using Vybe API",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "dev_server": "nodemon src/frontend/server.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.61.0",
+    "dotenv": "^16.0.3",
+    "axios": "^1.3.4",
+    "redis": "^4.6.5",
+    "winston": "^3.8.2",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+} 

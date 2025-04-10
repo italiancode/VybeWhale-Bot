@@ -1,0 +1,54 @@
+### 🚀 **VybeWhale: Real-Time Whale Tracker & Smart Wallet Analyzer Bot**
+
+#### 💡 Concept
+A Telegram bot that **alerts communities in real time** when:
+- Large wallet movements happen (whale buys/sells)
+- A wallet interacts with a risky contract or new memecoin
+- A new token gets traction with sudden holder spikes
+- Wallets tied to known influencers or "smart money" make moves
+
+#### 🔍 Key Features
+1. **Whale Alerts**
+   - Detect large transfers, swaps, or mint events.
+   - Custom thresholds by token/wallet.
+
+2. **Smart Wallet Radar**
+   - Tag and follow wallets with high ROI trades.
+   - Notify when they buy/sell or mint new tokens.
+
+3. **Token Insight Snapshots**
+   - On command, generate token summaries:
+     - Holder distribution
+     - Liquidity
+     - 24hr price + volume movement
+     - Link to AlphaVybe for deeper analytics
+
+4. **Airdrop Hunter Mode**
+   - Track wallets that recently received airdrops
+   - Alert communities when new projects distribute tokens
+
+5. **Custom Notifications for Community Admins**
+   - Admins can configure alerts by token, wallet, or event type
+   - Integration with groups/channels
+
+---
+
+### 🛠 Tech Stack
+
+- **Backend**: Node.js (or Python if preferred for faster bot prototyping)
+- **Telegram Bot API**: `node-telegram-bot-api` or `python-telegram-bot`
+- **Vybe APIs**: Real-time analytics and insights
+- **AlphaVybe**: For deeper analytics via links in the bot
+- **Hosting**: Render, Railway, or fly.io (for simplicity during hackathon)
+- **Database**: Firebase Firestore or Redis (for storing config and watchlists)
+
+---
+
+### 📘 Docs Plan (README Highlights)
+
+- Overview
+- Bot Features & Use Cases
+- Setup Guide (get API key, deploy, configure)
+- Telegram Commands Reference
+- Screenshots / GIFs of bot in action
+- Vybe API endpoints used + explanation
