@@ -1,1 +1,18 @@
  i want a front end i can use to log info returned from vybe api so i will know how to handle it on the bot section
+
+
+What is the difference beween whale and wallet alert thing?
+
+Whale Alerts: These monitor large transactions that exceed your set threshold. For example, if you set a threshold of $10,000, you'll be notified of any transactions larger than that amount.
+
+Wallet Alerts: These monitor specific wallets that you're tracking (up to 5 wallets). You'll be notified of any transactions involving these wallets, regardless of the transaction amount.
+
+The user can enable:
+Just whale alerts (for large transactions)
+Just wallet alerts (for tracked wallets)
+Both types of alerts using all
+For example:
+/enablealerts whale - Only get notifications for large transactions above your threshold
+/enablealerts wallet - Only get notifications for your tracked wallets
+/enablealerts all - Get both types of notifications
+The updated help text should make this distinction clearer to users. Would you like me to make any other clarifications to the documentation or code?

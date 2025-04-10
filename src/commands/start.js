@@ -16,8 +16,9 @@ I help you track Solana tokens and wallets with real-time alerts for:
 
 *Quick Start:*
 1. Use /token to analyze any Solana token
-2. Use /trackwallet to monitor wallets
-3. Enable alerts with /enablealerts whale or wallet
+2. Use /whale - View whale transactions
+3. Use /trackwallet to monitor wallets
+4. Enable alerts with /enablealerts whale or wallet
 
 ${
   alertStatus

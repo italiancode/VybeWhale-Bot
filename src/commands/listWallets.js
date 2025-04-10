@@ -30,30 +30,37 @@ try {
 async function handleListWallets(bot, msg) {
     try {
         const chatId = msg.chat.id;
+        const userId = msg.from.id;
         
         if (!redis?.isReady) {
             await bot.sendMessage(chatId, '⚠️ Storage service is currently unavailable. No tracked wallets are available.');
             return;
         }
 
-        // Get all tracked wallets
-        const wallets = await redis.sMembers('tracked_wallets');
+        // Get user-specific tracked wallets
+        const wallets = await redis.sMembers(`user:${userId}:wallets`);
         
         if (wallets.length === 0) {
             await bot.sendMessage(chatId, '📝 You are not tracking any wallets yet.\n\nUse /trackwallet to start tracking a wallet.');
             return;
         }
 
-        // Format the list of wallets
+        // Format the list of wallets with both truncated display and full copyable address
         const walletList = wallets.map((wallet, index) => 
-            `${index + 1}. ${wallet}`
-        ).join('\n');
+            `${index + 1}. ${wallet.slice(0, 8)}...${wallet.slice(-4)}\n` +
+            `\`${wallet}\``
+        ).join('\n\n');
 
-        const message = `📝 Your Tracked Wallets:\n\n${walletList}\n\n` +
-            `Use /untrackwallet [ADDRESS] to stop tracking a wallet.`;
+        const message = `📝 *Your Tracked Wallets:*\n\n${walletList}\n\n` +
+            `Total wallets: ${wallets.length}/5\n\n` +
+            `_Tap on the full address to copy it_\n` +
+            `Use /untrackwallet to stop tracking a wallet.`;
 
-        await bot.sendMessage(chatId, message);
-        logger.info(`Listed ${wallets.length} tracked wallets for user ${msg.from.id}`);
+        await bot.sendMessage(chatId, message, { 
+            parse_mode: 'Markdown',
+            disable_web_page_preview: true 
+        });
+        logger.info(`Listed ${wallets.length} tracked wallets for user ${userId}`);
     } catch (error) {
         logger.error('Error listing tracked wallets:', error);
         await bot.sendMessage(msg.chat.id, '❌ Error retrieving tracked wallets. Please try again later.');

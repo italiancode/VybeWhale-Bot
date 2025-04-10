@@ -82,14 +82,24 @@ async function handleUntrackWalletInput(bot, msg) {
         if (!redis?.isReady) {
             await bot.sendMessage(chatId, '⚠️ Storage service is currently unavailable. Please try again later.');
         } else {
-            // Check if wallet is being tracked
-            const isTracked = await redis.sIsMember('tracked_wallets', walletAddress);
+            // Check if wallet is being tracked by this user
+            const isTracked = await redis.sIsMember(`user:${userId}:wallets`, walletAddress);
             
             if (!isTracked) {
                 await bot.sendMessage(chatId, `❌ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)} is not being tracked.`);
             } else {
-                // Remove wallet from tracked wallets
-                await redis.sRem('tracked_wallets', walletAddress);
+                // Remove wallet from user's tracked wallets
+                await Promise.all([
+                    redis.sRem(`user:${userId}:wallets`, walletAddress),
+                    redis.sRem(`wallet:${walletAddress}:users`, userId.toString())
+                ]);
+
+                // If no users are tracking this wallet anymore, remove it from global tracking
+                const remainingUsers = await redis.sMembers(`wallet:${walletAddress}:users`);
+                if (remainingUsers.length === 0) {
+                    await redis.sRem('tracked_wallets', walletAddress);
+                }
+
                 logger.info(`Wallet ${walletAddress} removed from tracking for user ${userId}`);
                 await bot.sendMessage(chatId, `✅ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)} is no longer being tracked.`);
             }
