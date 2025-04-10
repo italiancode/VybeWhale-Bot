@@ -1,37 +1,52 @@
-const logger = require('../utils/logger');
+const logger = require("../utils/logger");
+const { getAlertStatus } = require("./config");
 
-async function handleStart(bot, msg) {
-    try {
-        if (!msg || !msg.chat) {
-            logger.error('Invalid message object received in start command');
-            return;
-        }
+async function handler(bot, msg) {
+  try {
+    const chatId = msg.chat.id;
+    const alertStatus = await getAlertStatus(chatId);
 
-        const chatId = msg.chat.id;
-        const welcomeMessage = `👋 Welcome to VybeWhale Bot!\n\n` +
-            `I track Solana whale activity and smart wallets. Here's what I can do:\n\n` +
-            `🐋 Track whale transactions\n` +
-            `👀 Monitor smart wallets\n` +
-            `📊 Get token info\n` +
-            `🎁 Detect airdrops\n\n` +
-            `Commands:\n` +
-            `/token - Check token info\n` +
-            `/whale - View whale transactions\n` +
-            `/trackwallet - Track a wallet\n` +
-            `/help - Show all commands\n\n` +
-            `Try /help for more details!`;
+    const welcomeMessage = `
+👋 *Welcome to VybeWhale Bot!*
 
-        await bot.sendMessage(chatId, welcomeMessage);
-        logger.info(`Start command handled for chat ${chatId}`);
-    } catch (error) {
-        logger.error('Error in start command:', error);
-        if (msg && msg.chat) {
-            await bot.sendMessage(msg.chat.id, 'Sorry, something went wrong. Please try again later.');
-        }
-    }
+I help you track Solana tokens and wallets with real-time alerts for:
+• Token price and market data
+• Whale transactions
+• Wallet activity and holdings
+
+*Quick Start:*
+1. Use /token to analyze any Solana token
+2. Use /trackwallet to monitor wallets
+3. Enable alerts with /enablealerts whale or wallet
+
+${
+  alertStatus
+    ? `
+*Your Alert Settings:*
+• Status: ${alertStatus.enabled ? "✅ Enabled" : "❌ Disabled"}
+• Types: ${alertStatus.types.length ? alertStatus.types.join(", ") : "None"}
+• Threshold: ${
+        alertStatus.threshold
+          ? "$" + alertStatus.threshold.toLocaleString()
+          : "Not set"
+      }
+`
+    : ""
+}
+
+Use /help to see all available commands.`;
+
+    await bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown" });
+    logger.info(`Start command executed for chat ${chatId}`);
+  } catch (error) {
+    logger.error("Error in start command:", error);
+    await bot.sendMessage(
+      msg.chat.id,
+      "Sorry, something went wrong. Please try again later."
+    );
+  }
 }
 
 module.exports = {
-    command: 'start',
-    handler: handleStart
-}; 
+  handler,
+};

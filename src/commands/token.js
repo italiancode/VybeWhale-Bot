@@ -146,12 +146,56 @@ async function handleTokenInput(bot, msg) {
 
 function formatTokenInfo(tokenInfo, topHolders, transferVolume, bot) {
   const formatNumber = (num) => {
-    if (!num) return "N/A";
-    return num >= 1_000_000
-      ? `${(num / 1_000_000).toFixed(2)}M`
-      : num >= 1_000
-      ? `${(num / 1_000).toFixed(2)}K`
-      : num.toFixed(2);
+    if (!num && num !== 0) return "N/A";
+    
+    // For very precise small numbers (like some token prices)
+    if (num < 0.000001) {
+      return num.toExponential(6);
+    }
+    
+    // For numbers less than 1 but greater than 0.000001
+    if (num < 1) {
+      const decimals = Math.max(8, -Math.floor(Math.log10(num)));
+      return num.toFixed(decimals);
+    }
+
+    // For trillions
+    if (num >= 1_000_000_000_000) {
+      return `${(num / 1_000_000_000_000).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}T`;
+    }
+
+    // For billions
+    if (num >= 1_000_000_000) {
+      return `${(num / 1_000_000_000).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}B`;
+    }
+    
+    // For millions
+    if (num >= 1_000_000) {
+      return `${(num / 1_000_000).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}M`;
+    }
+    
+    // For thousands
+    if (num >= 1_000) {
+      return `${(num / 1_000).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}K`;
+    }
+    
+    // For numbers between 1 and 999
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   };
 
   const price24hChange =

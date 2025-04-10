@@ -11,7 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Serve static files from the frontend directory
-app.use(express.static(path.join(__dirname, 'frontend')));
+app.use(express.static(path.join(__dirname)));
 
 // API Routes
 app.get('/api/token/:mintAddress', async (req, res) => {
@@ -70,7 +70,7 @@ app.get('/api/token/:mintId/transfer-volume', async (req, res) => {
 
 // Serve the frontend for all other routes
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(port, () => {

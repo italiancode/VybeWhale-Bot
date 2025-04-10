@@ -1,23 +1,42 @@
-const logger = require('../utils/logger');
+const logger = require("../utils/logger");
 
-async function handler(bot, msg) {
-    try {
-        const helpMessage = `🤖 *VybeWhale Bot Commands*\n\n` +
-            `*Main Commands:*\n` +
-            `• /token - Check token info\n` +
-            `• /whale - View whale transactions\n` +
-            `• /trackwallet - Track a wallet\n` +
-            `• /listwallets - List tracked wallets\n` +
-            `• /untrackwallet - Stop tracking a wallet\n\n` +
-            `*Settings:*\n` +
-            `• /start - Start the bot\n` +
-            `• /help - Show this help message`;
+const handler = async (bot, msg) => {
+  const helpText = `
+🤖 *VybeWhale Bot Commands*
 
-        await bot.sendMessage(msg.chat.id, helpMessage, { parse_mode: 'Markdown' });
-    } catch (error) {
-        logger.error('Error in help command:', error);
-        await bot.sendMessage(msg.chat.id, 'Sorry, something went wrong. Please try again later.');
-    }
-}
+*General Commands:*
+/start - Start the bot
+/help - Show this help message
+/config - View and manage all settings
 
-module.exports = { handler }; 
+*Token Commands:*
+/token - Check token info and market data
+/whale - View whale transactions for a token
+
+*Wallet Tracking:*
+/trackwallet - Track a wallet's activity
+/listwallets - List all tracked wallets
+/untrackwallet - Stop tracking a wallet
+
+*Alert Settings:*
+/enablealerts [type] - Enable alerts:
+  • whale - Large transactions above threshold
+  • wallet - Activity from tracked wallets
+  • all - Both types of alerts
+/disablealerts [type] - Disable specific alerts
+/setthreshold [amount] - Set whale alert threshold (USD)
+
+*Examples:*
+• /token So11111111111111111111111111111111111111112
+• /whale EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+• /trackwallet 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1
+• /setthreshold 10000
+• /enablealerts whale
+`;
+
+  await bot.sendMessage(msg.chat.id, helpText, { parse_mode: "Markdown" });
+};
+
+module.exports = {
+  handler,
+};

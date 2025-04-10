@@ -3,15 +3,6 @@ const logger = require('../utils/logger');
 
 class VybeAPI {
     constructor() {
-        if (!process.env.VYBE_API_BASE_URL) {
-            throw new Error('VYBE_API_BASE_URL environment variable is not configured');
-        }
-        if (!process.env.VYBE_API_KEY) {
-            throw new Error('VYBE_API_KEY environment variable is not configured');
-        }
-
-        console.log('Initializing VybeAPI with base URL:', process.env.VYBE_API_BASE_URL);
-        
         this.api = axios.create({
             baseURL: process.env.VYBE_API_BASE_URL,
             headers: {
@@ -20,28 +11,15 @@ class VybeAPI {
                 'Content-Type': 'application/json'
             }
         });
-
-        // Add request interceptor for debugging
-        this.api.interceptors.request.use(request => {
-            console.log('Making request to:', request.baseURL + request.url);
-            return request;
-        });
     }
 
     async getTokenInfo(mintAddress) {
         try {
-            console.log(`Fetching token info for mint address: ${mintAddress}`);
             const response = await this.api.get(`/token/${mintAddress}`);
             return response.data;
         } catch (error) {
-            logger.error('Error fetching token info:', {
-                error: error.message,
-                status: error.response?.status,
-                data: error.response?.data,
-                mintAddress,
-                url: error.config?.url
-            });
-            throw new Error(`Failed to fetch token info: ${error.response?.data?.message || error.message}`);
+            logger.error('Error fetching token info:', error);
+            throw error;
         }
     }
 
@@ -103,6 +81,64 @@ class VybeAPI {
             return response.data;
         } catch (error) {
             logger.error('Error fetching token transfer volume:', error);
+            throw error;
+        }
+    }
+
+    async getWalletInfo(walletAddress) {
+        try {
+            const response = await this.api.get(`/account/${walletAddress}`, {
+                params: {
+                    includeTokens: true,
+                    includeNFTs: true
+                }
+            });
+            return response.data;
+        } catch (error) {
+            logger.error('Error fetching wallet info:', error);
+            throw error;
+        }
+    }
+
+    async trackWallet(walletAddress) {
+        try {
+            const response = await this.api.post('/tracking/wallet', {
+                walletAddress,
+                notificationType: 'all' // Track all types of activities
+            });
+            return response.data;
+        } catch (error) {
+            logger.error('Error tracking wallet:', error);
+            throw error;
+        }
+    }
+
+    async untrackWallet(walletAddress) {
+        try {
+            const response = await this.api.delete(`/tracking/wallet/${walletAddress}`);
+            return response.data;
+        } catch (error) {
+            logger.error('Error untracking wallet:', error);
+            throw error;
+        }
+    }
+
+    async isWalletTracked(walletAddress) {
+        try {
+            const response = await this.api.get(`/tracking/wallet/${walletAddress}/status`);
+            return response.data.isTracked;
+        } catch (error) {
+            logger.error('Error checking wallet tracking status:', error);
+            throw error;
+        }
+    }
+
+    async getTrackedWallets() {
+        try {
+            const response = await this.api.get('/tracking/wallets');
+            return response.data.wallets;
+        } catch (error) {
+            logger.error('Error fetching tracked wallets:', error);
             throw error;
         }
     }

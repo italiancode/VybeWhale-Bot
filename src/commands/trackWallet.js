@@ -2,52 +2,94 @@ const Redis = require("redis");
 const logger = require("../utils/logger");
 const stateManager = require("../utils/stateManager");
 
-let redis;
-try {
-  redis = Redis.createClient({
-    url: process.env.REDIS_URL,
-    socket: {
-      reconnectStrategy: (retries) => {
-        if (retries > 10) {
-          logger.error("Redis connection failed after 10 retries");
-          return false;
-        }
-        return Math.min(retries * 100, 3000);
-      },
-    },
-  });
+class RedisClient {
+  constructor() {
+    this.client = null;
+    this.isInitialized = false;
+  }
 
-  redis.on("error", (err) => {
-    logger.error("Redis Client Error:", err);
-  });
+  async initialize() {
+    if (this.isInitialized) return;
 
-  redis.connect().catch((err) => {
-    logger.error("Redis Connection Error:", err);
-  });
-} catch (error) {
-  logger.error("Redis Initialization Error:", error);
+    try {
+      this.client = Redis.createClient({
+        url: process.env.REDIS_URL,
+        socket: {
+          reconnectStrategy: (retries) => {
+            if (retries > 10) {
+              logger.error("Redis connection failed after 10 retries");
+              return false;
+            }
+            return Math.min(retries * 100, 3000);
+          },
+        },
+      });
+
+      this.client.on("error", (err) => {
+        logger.error("Redis Client Error:", err);
+      });
+
+      this.client.on("connect", () => {
+        logger.info("Redis Client Connected");
+      });
+
+      await this.client.connect();
+      this.isInitialized = true;
+    } catch (error) {
+      logger.error("Redis Initialization Error:", error);
+      throw error;
+    }
+  }
+
+  async quit() {
+    if (this.client) {
+      await this.client.quit();
+      this.isInitialized = false;
+    }
+  }
+
+  get isReady() {
+    return this.client?.isReady || false;
+  }
 }
+
+const redisClient = new RedisClient();
+
+// Initialize Redis when the module loads
+redisClient.initialize().catch((err) => {
+  logger.error("Failed to initialize Redis:", err);
+});
 
 async function handleTrackWalletCommand(bot, msg) {
   try {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
+    // Check if user has reached maximum wallet limit (e.g., 5 wallets per user)
+    const userWallets = await redisClient.client?.sMembers(`user:${userId}:wallets`) || [];
+    if (userWallets.length >= 5) {
+      await bot.sendMessage(
+        chatId,
+        "❌ You have reached the maximum limit of 5 tracked wallets. Please remove some wallets using /removewallet before adding new ones."
+      );
+      return;
+    }
+
     // Set initial state for wallet input
     stateManager.setState(userId, {
       command: "trackwallet",
       step: "awaiting_wallet",
+      timestamp: Date.now(), // Add timestamp for potential timeout handling
     });
 
     const message =
-      `Please enter the Solana wallet address you want to track.\n\n` +
-      `Example: 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1\n\n` +
-      `You can find wallet addresses on:\n` +
-      `• Solscan\n` +
-      `• Solana Explorer\n` +
-      `• Your wallet app`;
+      `🔍 *Wallet Tracking Setup*\n\n` +
+      `Please enter the *Solana wallet address* you want to track.\n\n` +
+      `Example Format:\n` +
+      `\`5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1\`\n\n` +
+      `_You can track up to 5 wallets._`;
 
-    await bot.sendMessage(chatId, message);
+    await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
     logger.info(`Track wallet command initiated for user ${userId}`);
   } catch (error) {
     logger.error("Error in track wallet command:", error);
@@ -55,6 +97,7 @@ async function handleTrackWalletCommand(bot, msg) {
       msg.chat.id,
       "Sorry, something went wrong. Please try again later."
     );
+    stateManager.clearState(msg.from.id);
   }
 }
 
@@ -68,15 +111,24 @@ async function handleWalletInput(bot, msg) {
       return;
     }
 
+    // Check for state timeout (e.g., 5 minutes)
+    if (Date.now() - userState.timestamp > 5 * 60 * 1000) {
+      stateManager.clearState(userId);
+      await bot.sendMessage(
+        chatId,
+        "⏰ Wallet tracking session timed out. Please start again with /trackwallet"
+      );
+      return;
+    }
+
     const walletAddress = msg.text.trim();
-    
+
     // Check if the input is a command
-    if (walletAddress.startsWith('/')) {
-      // Clear the current state and let the main message handler process the command
+    if (walletAddress.startsWith("/")) {
       stateManager.clearState(userId);
       return;
     }
-    
+
     // Validate Solana wallet address format (base58 encoded, typically 32-44 characters)
     if (!walletAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
       await bot.sendMessage(
@@ -87,22 +139,44 @@ async function handleWalletInput(bot, msg) {
     }
 
     // Show typing indicator
-    await bot.sendChatAction(chatId, 'typing');
+    await bot.sendChatAction(chatId, "typing");
 
-    if (!redis?.isReady) {
+    if (!redisClient.isReady) {
       await bot.sendMessage(
         chatId,
-        "⚠️ Storage service is currently unavailable. Wallet tracking will not persist after restart."
+        "⚠️ Storage service is currently unavailable. Please try again later."
       );
-    } else {
-      // Add wallet to tracked wallets
-      await redis.sAdd("tracked_wallets", walletAddress);
-      logger.info(`Wallet ${walletAddress} added to tracking for user ${userId}`);
+      return;
     }
+
+    // Check if wallet is already being tracked by this user
+    const userWallets = await redisClient.client.sMembers(`user:${userId}:wallets`);
+    if (userWallets.includes(walletAddress)) {
+      await bot.sendMessage(
+        chatId,
+        "⚠️ You are already tracking this wallet."
+      );
+      stateManager.clearState(userId);
+      return;
+    }
+
+    // Add wallet to tracked wallets and create user association
+    await Promise.all([
+      redisClient.client.sAdd("tracked_wallets", walletAddress),
+      redisClient.client.sAdd(`user:${userId}:wallets`, walletAddress),
+      redisClient.client.sAdd(`wallet:${walletAddress}:users`, userId.toString())
+    ]);
+
+    logger.info(
+      `Wallet ${walletAddress} added to tracking for user ${userId}`
+    );
 
     await bot.sendMessage(
       chatId,
-      `✅ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)} is now being tracked.\n\nUse /listwallets to see all tracked wallets.`
+      `✅ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(
+        -4
+      )} is now being tracked.\n\nUse /listwallets to see all tracked wallets.`,
+      { parse_mode: "Markdown" }
     );
 
     // Clear user state
@@ -117,7 +191,13 @@ async function handleWalletInput(bot, msg) {
   }
 }
 
+// Cleanup function to be called when shutting down the application
+async function cleanup() {
+  await redisClient.quit();
+}
+
 module.exports = {
   handleTrackWalletCommand,
   handleWalletInput,
+  cleanup,
 };
