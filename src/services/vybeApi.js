@@ -6,7 +6,7 @@ class VybeAPI {
         this.api = axios.create({
             baseURL: process.env.VYBE_API_BASE_URL,
             headers: {
-                'Authorization': `Bearer ${process.env.VYBE_API_KEY}`,
+                // 'Authorization': `Bearer ${process.env.VYBE_API_KEY}`,
                 'x-api-key': process.env.VYBE_API_KEY,
                 'Content-Type': 'application/json'
             }
@@ -23,19 +23,61 @@ class VybeAPI {
         }
     }
 
-    async getWhaleTransactions(mintAddress, minUsdAmount = process.env.DEFAULT_WHALE_THRESHOLD) {
+    async getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
+        const params = {
+            mintAddress,
+            limit,
+            sortByDesc: 'amount'
+        };
+        if (minUsdAmount) params.minUsdAmount = minUsdAmount;
         try {
-            const response = await this.api.get('/token/transfers', {
-                params: {
-                    mintAddress,
-                    minUsdAmount,
-                    limit: 10, // Get top 10 whale transactions
-                    sortByDesc: 'usdAmount' // Sort by largest transactions first
-                }
-            });
+            const response = await this.api.get('/token/transfers', { params });
             return response.data;
         } catch (error) {
             logger.error('Error fetching whale transactions:', error);
+            throw error;
+        }
+    }
+
+    async getBotWhaleTransactions(mintAddress, minUsdAmount = 10000, limit = 3) {
+        try {
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            
+            const apiMinAmount = Math.max(5000, minUsdAmount * 0.5);
+            
+            const params = {
+                mintAddress,
+                limit: Math.min(10, limit * 2),
+                sortByDesc: 'amount',
+                timeStart: Math.floor(twoDaysAgo.getTime() / 1000)
+            };
+            
+            logger.info(`Fetching bot whale transactions for ${mintAddress} with min amount ${apiMinAmount}`);
+            
+            const response = await this.api.get('/token/transfers', { 
+                params,
+                timeout: 8000
+            });
+            
+            let transactions = response.data;
+            
+            if (minUsdAmount && transactions.length > 0) {
+                transactions = transactions.filter(tx => 
+                    tx.usdAmount && tx.usdAmount >= Number(minUsdAmount)
+                );
+                
+                transactions = transactions.slice(0, limit);
+            }
+            
+            return transactions;
+        } catch (error) {
+            if (error.code === 'ECONNABORTED' || 
+                (error.response && error.response.status === 408)) {
+                logger.warn(`Timeout fetching whale transactions for ${mintAddress}`);
+                return [];
+            }
+            
             throw error;
         }
     }

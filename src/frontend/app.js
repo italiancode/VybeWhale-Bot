@@ -54,7 +54,7 @@ async function getWhaleTransactions() {
             mintAddress,
             ...(minUsdAmount && { minUsdAmount }),
             limit: 10,
-            sortByDesc: 'usdAmount'
+            sortByDesc: 'amount'
         });
 
         const response = await fetch(`/api/token/transfers?${params}`);

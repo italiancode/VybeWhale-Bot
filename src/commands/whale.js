@@ -1,178 +1,232 @@
-const vybeApi = require('../services/vybeApi');
-const logger = require('../utils/logger');
-const stateManager = require('../utils/stateManager');
+const vybeApi = require("../services/vybeApi");
+const logger = require("../utils/logger");
+const stateManager = require("../utils/stateManager");
 
 async function handleWhaleCommand(bot, msg) {
-    try {
-        const chatId = msg.chat.id;
-        const userId = msg.from.id;
-        const userState = stateManager.getState(userId);
+  try {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const userState = stateManager.getState(userId);
 
-        // Check for direct token address in command
-        const commandArgs = msg.text.split(' ');
-        if (commandArgs.length > 1) {
-            const tokenAddress = commandArgs[1].trim();
-            // Validate Solana address format
-            if (tokenAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
-                await handleDirectWhaleTracking(bot, chatId, tokenAddress);
-                return;
-            } else {
-                await bot.sendMessage(chatId, '❌ Invalid Solana token address format. Please enter a valid Solana token address.');
-                return;
-            }
-        }
-
-        // Check if we have a lastToken from previous token analysis
-        if (userState?.lastToken) {
-            logger.info(`Using last analyzed token ${userState.lastTokenSymbol} for whale tracking`);
-            await handleDirectWhaleTracking(bot, chatId, userState.lastToken);
-            return;
-        }
-
-        // If no previous token, proceed with normal flow
-        stateManager.setState(userId, {
-            command: 'whale',
-            step: 'awaiting_token'
-        });
-
-        const message = 
-            `🐋 *Whale Transaction Tracker*\n\n` +
-            `Please enter the *Solana token address* to track whale movements.\n\n` +
-            `🔹 *Example:* \`So11111111111111111111111111111111111111112\` _(SOL token)_\n\n` +
-            `This will show you recent large transactions and their impact.`;
-
-        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-        logger.info(`Whale command initiated for user ${userId}`);
-    } catch (error) {
-        logger.error('Error in whale command:', error);
-        await bot.sendMessage(msg.chat.id, '⚠️ Sorry, something went wrong. Please try again later.');
+    // Check for direct token address in command
+    const commandArgs = msg.text.split(" ");
+    if (commandArgs.length > 1) {
+      const tokenAddress = commandArgs[1].trim();
+      // Validate Solana address format
+      if (tokenAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
+        await processWhaleTransactions(bot, chatId, userId, tokenAddress);
+        return;
+      } else {
+        await bot.sendMessage(
+          chatId,
+          "❌ Invalid Solana token address format. Please enter a valid Solana token address."
+        );
+        return;
+      }
     }
+
+    // Check if we have a lastToken from previous token analysis
+    if (userState?.lastToken) {
+      logger.info(
+        `Using last analyzed token ${userState.lastTokenSymbol} for whale tracking`
+      );
+      await processWhaleTransactions(bot, chatId, userId, userState.lastToken);
+      return;
+    }
+
+    // If no previous token, proceed with normal flow
+    stateManager.setState(userId, {
+      command: "whale",
+      step: "awaiting_token",
+    });
+
+    const message =
+      `🐋 *Whale Transaction Tracker*\n\n` +
+      `Please enter the *Solana token address* to track large transactions.\n\n` +
+      `🔹 *Example:* \`So11111111111111111111111111111111111111112\` _(SOL token)_\n\n` +
+      `This will show recent large transactions for the specified token.`;
+
+    await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+    logger.info(`Whale command initiated for user ${userId}`);
+  } catch (error) {
+    logger.error("Error in whale command:", error);
+    await bot.sendMessage(
+      msg.chat.id,
+      "⚠️ Sorry, something went wrong. Please try again later."
+    );
+  }
 }
 
 async function handleWhaleInput(bot, msg) {
-    try {
-        const chatId = msg.chat.id;
-        const userId = msg.from.id;
-        const userState = stateManager.getState(userId);
+  try {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const userState = stateManager.getState(userId);
 
-        if (!userState || userState.command !== 'whale') {
-            return;
-        }
-
-        const tokenAddress = msg.text.trim();
-        
-        if (tokenAddress.startsWith('/')) {
-            stateManager.clearState(userId);
-            return;
-        }
-        
-        if (!tokenAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
-            await bot.sendMessage(chatId, '❌ Invalid Solana token address format. Please enter a valid Solana token address.');
-            return;
-        }
-
-        await bot.sendChatAction(chatId, 'typing');
-
-        const tokenInfo = await vybeApi.getTokenInfo(tokenAddress);
-        const transactions = await vybeApi.getWhaleTransactions(tokenAddress);
-        
-        if (transactions.length === 0) {
-            await bot.sendMessage(chatId, `No recent whale transactions found for ${tokenInfo.symbol || 'this token'}.`);
-        } else {
-            const tokenMessage = `📊 *${tokenInfo.symbol || 'Token'} Information*\n` +
-                `Name: ${tokenInfo.name || 'N/A'}\n` +
-                `Price: $${tokenInfo.price?.toFixed(6) || 'N/A'}\n` +
-                `24h Volume: $${tokenInfo.volume24h?.toLocaleString() || 'N/A'}\n\n` +
-                `🐋 *Recent Whale Transactions*\n\n`;
-
-            const transactionsMessage = transactions.map((tx, index) => {
-                const type = tx.type.toUpperCase();
-                const emoji = type === 'BUY' ? '🟢' : type === 'SELL' ? '🔴' : '⚪';
-                const amount = tx.usdAmount?.toLocaleString() || 'N/A';
-                const time = new Date(tx.timestamp).toLocaleString();
-                
-                return `${index + 1}. ${emoji} ${type}\n` +
-                       `   Amount: $${amount}\n` +
-                       `   From: ${tx.senderAddress?.slice(0, 8)}...${tx.senderAddress?.slice(-4)}\n` +
-                       `   To: ${tx.receiverAddress?.slice(0, 8)}...${tx.receiverAddress?.slice(-4)}\n` +
-                       `   Time: ${time}`;
-            }).join('\n\n');
-
-            const fullMessage = tokenMessage + transactionsMessage;
-            if (fullMessage.length > 4000) {
-                await bot.sendMessage(chatId, tokenMessage, { parse_mode: 'Markdown' });
-                await bot.sendMessage(chatId, transactionsMessage, { parse_mode: 'Markdown' });
-            } else {
-                await bot.sendMessage(chatId, fullMessage, { parse_mode: 'Markdown' });
-            }
-        }
-
-        stateManager.clearState(userId);
-        logger.info(`Whale transactions provided for user ${userId}`);
-    } catch (error) {
-        logger.error('Error processing whale command input:', error);
-        await bot.sendMessage(msg.chat.id, '❌ Error fetching whale transactions. Please try again later.');
-        stateManager.clearState(msg.from.id);
+    if (!userState || userState.command !== "whale") {
+      return;
     }
+
+    const tokenAddress = msg.text.trim();
+
+    // Check if input is a new command
+    if (tokenAddress.startsWith("/")) {
+      stateManager.clearState(userId);
+      return;
+    }
+
+    // Validate Solana address format
+    if (!tokenAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
+      await bot.sendMessage(
+        chatId,
+        "❌ Invalid Solana token address format. Please enter a valid Solana token address."
+      );
+      return;
+    }
+
+    await processWhaleTransactions(bot, chatId, userId, tokenAddress);
+  } catch (error) {
+    logger.error("Error processing whale input:", error);
+    await bot.sendMessage(
+      msg.chat.id,
+      "⚠️ An unexpected error occurred. Please try again later."
+    );
+    stateManager.clearState(msg.from.id);
+  }
 }
 
-async function handleDirectWhaleTracking(bot, chatId, tokenAddress) {
-    try {
-        await bot.sendChatAction(chatId, 'typing');
+async function processWhaleTransactions(bot, chatId, userId, tokenAddress) {
+  try {
+    await bot.sendChatAction(chatId, "typing");
+    await bot.sendMessage(
+      chatId,
+      "🔍 Fetching whale transactions... This may take a moment."
+    );
 
-        const tokenInfo = await vybeApi.getTokenInfo(tokenAddress);
-        const transactions = await vybeApi.getWhaleTransactions(tokenAddress);
-        
-        if (transactions.length === 0) {
-            await bot.sendMessage(chatId, 
-                `🔍 No recent whale transactions found for *${tokenInfo.symbol || 'this token'}*.\n\n` +
-                `I'll notify you when large transactions occur!`, 
-                { parse_mode: 'Markdown' }
-            );
-            return;
-        }
+    // Default threshold from environment variable or fallback
+    const minUsdAmount = process.env.DEFAULT_WHALE_THRESHOLD || 10000;
+    // Only fetch 3 whale transactions for Telegram
+    const limit = 3;
 
-        let message = `🐋 *${tokenInfo.symbol} Whale Activity*\n`;
-        message += `━━━━━━━━━━━━━━━━━━\n`;
-        message += `💰 Price: $${tokenInfo.price?.toFixed(2)}\n\n`;
+    // Get token info for symbol and name
+    const tokenInfo = await vybeApi.getTokenInfo(tokenAddress)
+      .catch(error => {
+        logger.error("Error fetching token info:", error);
+        return { symbol: "Unknown", name: "Unknown Token" };
+      });
 
-        transactions.slice(0, 5).forEach((tx, index) => {
-            const type = tx.type.toUpperCase();
-            const emoji = type === 'BUY' ? '🟢' : '🔴';
-            const amount = tx.usdAmount?.toLocaleString() || 'N/A';
-            const timeAgo = getTimeAgo(new Date(tx.timestamp));
-            
-            message += `${emoji} $${amount}\n`;
-            message += `└ ${timeAgo} ago\n`;
-        });
+    // Use the specialized method for bot whale transactions
+    const transactions = await vybeApi.getBotWhaleTransactions(
+      tokenAddress,
+      minUsdAmount,
+      limit
+    );
 
-        message += `\n📊 [View All Transactions](https://alpha.vybenetwork.com/tokens/${tokenAddress})`;
-        
-        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-        logger.info(`Whale tracking data provided for ${tokenInfo.symbol}`);
-    } catch (error) {
-        logger.error('Error in direct whale tracking:', error);
-        await bot.sendMessage(chatId, '⚠️ Error fetching whale data. Try again later.');
+    if (!transactions || transactions.length === 0) {
+      // No transactions found, provide a link to view on the website
+      await bot.sendMessage(
+        chatId,
+        `No recent whale transactions found for ${tokenInfo.symbol || "this token"} with minimum amount of $${Number(minUsdAmount).toLocaleString()}.\n\n` +
+        `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})`,
+        { parse_mode: "Markdown" }
+      );
+      stateManager.clearState(userId);
+      return;
     }
-}
 
-function getTimeAgo(date) {
-    const seconds = Math.floor((new Date() - date) / 1000);
+    // Format the transactions for display
+    const formattedMessage = formatWhaleTransactions(
+      transactions,
+      tokenInfo,
+      minUsdAmount,
+      tokenAddress
+    );
+
+    await bot.sendMessage(chatId, formattedMessage, { parse_mode: "Markdown" });
+    logger.info(`Whale transactions provided for user ${userId}`);
+
+    // Store the token for later use
+    stateManager.setState(userId, {
+      command: "token",
+      lastToken: tokenAddress,
+      lastTokenSymbol: tokenInfo.symbol || "Unknown Token",
+    });
+  } catch (error) {
+    logger.error("Error fetching whale transactions:", error);
+    const errorMessage = error.response?.data?.message || error.message;
     
-    const intervals = {
-        day: 86400,
-        hour: 3600,
-        minute: 60
-    };
-
-    if (seconds < intervals.minute) return 'just now';
-    if (seconds < intervals.hour) return Math.floor(seconds / intervals.minute) + 'm';
-    if (seconds < intervals.day) return Math.floor(seconds / intervals.hour) + 'h';
-    return Math.floor(seconds / intervals.day) + 'd';
+    await bot.sendMessage(
+      chatId,
+      `⚠️ Error fetching whale transactions. The API might be experiencing high load.\n\n` + 
+      `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})`,
+      { parse_mode: "Markdown" }
+    );
+    stateManager.clearState(userId);
+  }
 }
 
-module.exports = { 
-    handleWhaleCommand,
-    handleWhaleInput,
-    handleDirectWhaleTracking
+function formatWhaleTransactions(transactions, tokenInfo, minUsdAmount, tokenAddress) {
+  const tokenSymbol = tokenInfo.symbol || "Unknown";
+  const tokenName = tokenInfo.name || "Unknown Token";
+
+  let message = `🐋 *Whale Transactions for ${tokenSymbol}* (${tokenName})\n`;
+  message += `💰 Minimum amount: $${Number(minUsdAmount).toLocaleString()}\n\n`;
+
+  transactions.forEach((tx, index) => {
+    // Format date
+    const date = tx.blockTime 
+      ? new Date(tx.blockTime * 1000).toLocaleString() 
+      : new Date().toLocaleString();
+    
+    // Format amounts
+    const usdAmount = tx.usdAmount 
+      ? `$${Number(tx.usdAmount).toLocaleString()}` 
+      : "Unknown";
+    
+    const tokenAmount = tx.tokenAmount 
+      ? Number(tx.tokenAmount).toLocaleString() 
+      : "Unknown";
+    
+    // Determine transaction type
+    const direction = tx.type || tx.tokenTransferType || "TRANSFER";
+    let directionEmoji = "↔️";
+    if (direction.toUpperCase() === "BUY") directionEmoji = "🟢";
+    if (direction.toUpperCase() === "SELL") directionEmoji = "🔴";
+    
+    // Format addresses
+    const fromAddress = tx.fromAddress || tx.senderAddress || "Unknown";
+    const toAddress = tx.toAddress || tx.receiverAddress || "Unknown";
+    
+    const shortFromAddress = fromAddress !== "Unknown"
+      ? `${fromAddress.substring(0, 4)}...${fromAddress.substring(fromAddress.length - 4)}`
+      : "Unknown";
+    
+    const shortToAddress = toAddress !== "Unknown"
+      ? `${toAddress.substring(0, 4)}...${toAddress.substring(toAddress.length - 4)}`
+      : "Unknown";
+    
+    message += `${index + 1}. ${directionEmoji} *${direction.toUpperCase()}* - ${usdAmount}\n`;
+    message += `   🔢 ${tokenAmount} ${tokenSymbol}\n`;
+    message += `   👤 From: \`${shortFromAddress}\` To: \`${shortToAddress}\`\n`;
+    message += `   🕒 ${date}\n`;
+    
+    // Add transaction explorer link if available
+    if (tx.txId || tx.signature) {
+      const txId = tx.txId || tx.signature;
+      message += `   🔍 [View Transaction](https://solscan.io/tx/${txId})\n`;
+    }
+    
+    message += "\n";
+  });
+
+  // Add link to view all transactions on Vybe Network
+  message += `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})\n\n`;
+  message += `Data provided by Vybe API`;
+  
+  return message;
+}
+
+module.exports = {
+  handleWhaleCommand,
+  handleWhaleInput,
 };

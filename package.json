@@ -1,4 +1,4 @@
-{
+{ 
   "name": "vybewhale-bot",
   "version": "1.0.0",
   "description": "A Telegram bot for crypto whale tracking and alerts using Vybe API",

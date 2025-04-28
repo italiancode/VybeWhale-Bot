@@ -30,10 +30,18 @@ app.get('/api/token/:mintAddress', async (req, res) => {
 
 app.get('/api/token/transfers', async (req, res) => {
     try {
-        const data = await vybeApi.getWhaleTransactions(req.query.mintAddress, req.query.minUsdAmount);
+        const limit = req.query.limit ? parseInt(req.query.limit) : 1000; // Default to 1000 for frontend
+        const data = await vybeApi.getWhaleTransactions(
+            req.query.mintAddress, 
+            req.query.minUsdAmount,
+            limit
+        );
         res.json(data);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: error.message,
+            details: error.response?.data
+        });
     }
 });
 
