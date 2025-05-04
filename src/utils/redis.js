@@ -49,7 +49,11 @@ class RedisManager {
     getClient() {
         return this.client;
     }
+
+    isConnected() {
+        return this.client !== null && this.client.isOpen;
+    }
 }
 
 // Export a singleton instance
-module.exports = new RedisManager(); 
+module.exports = new RedisManager();

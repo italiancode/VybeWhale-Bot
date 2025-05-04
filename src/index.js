@@ -171,8 +171,24 @@ async function initializeApp() {
                 });
             } else if (error.code === 'ETELEGRAM') {
                 logger.error('Telegram API error:', error.message || error);
+                // Don't kill the bot for Telegram API errors, just restart polling if needed
+                if (error.response && error.response.statusCode >= 500) {
+                    logger.info('Telegram server error, restarting polling after delay');
+                    bot.stopPolling().then(() => {
+                        setTimeout(() => bot.startPolling(), 10000);
+                    });
+                }
             } else {
                 logger.error('Polling error:', error.message || error);
+                // Restart polling for other errors after a delay
+                setTimeout(() => {
+                    try {
+                        bot.startPolling();
+                        logger.info('Polling restarted after error');
+                    } catch (e) {
+                        logger.error('Failed to restart polling:', e);
+                    }
+                }, 15000);
             }
         });
 
@@ -191,23 +207,97 @@ async function initializeApp() {
     }
 }
 
-// Handle application shutdown
+// Handle application shutdown - with more graceful handling for Render
 process.on('SIGINT', async () => {
-    logger.info('Shutting down...');
-    await redisManager.quit();
-    process.exit(0);
+    logger.info('Received SIGINT signal');
+    try {
+        // When running locally, exit properly
+        if (!process.env.RENDER) {
+            logger.info('Shutting down gracefully...');
+            await redisManager.quit();
+            process.exit(0);
+        } else {
+            // On Render, don't exit to prevent automatic shutdown
+            logger.info('SIGINT received on Render, but keeping the process alive');
+            // Just disconnect Redis but keep process running
+            await redisManager.quit();
+            // Restart initialization after a delay
+            setTimeout(() => {
+                logger.info('Reinitializing application after SIGINT');
+                initializeApp();
+            }, 30000);
+        }
+    } catch (err) {
+        logger.error('Error during shutdown:', err);
+    }
 });
 
 process.on('SIGTERM', async () => {
-    logger.info('Shutting down...');
-    await redisManager.quit();
-    process.exit(0);
+    logger.info('Received SIGTERM signal');
+    try {
+        // When running locally, exit properly
+        if (!process.env.RENDER) {
+            logger.info('Shutting down gracefully...');
+            await redisManager.quit();
+            process.exit(0);
+        } else {
+            // On Render, don't exit to prevent automatic shutdown
+            logger.info('SIGTERM received on Render, but keeping the process alive');
+            // Disconnect Redis but keep the process running
+            await redisManager.quit();
+            // Restart initialization after a delay
+            setTimeout(() => {
+                logger.info('Reinitializing application after SIGTERM');
+                initializeApp();
+            }, 30000);
+        }
+    } catch (err) {
+        logger.error('Error during shutdown:', err);
+    }
 });
 
-// Create HTTP server for Render deployment
+// Handle uncaught exceptions to prevent app from crashing
+process.on('uncaughtException', (err) => {
+    logger.error('Uncaught exception:', err);
+    // Don't exit the process, try to keep it running
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled promise rejection:', reason);
+    // Don't exit the process, try to keep it running
+});
+
+// Create HTTP server for Render deployment with health checks
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('VybeWhale Bot is running');
+    // Simple health check endpoint
+    if (req.url === '/health' || req.url === '/') {
+        // Return different status if the bot is not fully operational
+        try {
+            const botStatus = bot ? 'connected' : 'disconnected';
+            const redisStatus = redisManager.isConnected() ? 'connected' : 'disconnected';
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                status: 'up',
+                timestamp: new Date().toISOString(),
+                bot: botStatus,
+                redis: redisStatus,
+                uptime: process.uptime() + ' seconds'
+            }));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'error', error: err.message }));
+        }
+    // Handle ping from uptime monitors
+    } else if (req.url === '/ping') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('pong');
+    // Default response for other routes
+    } else {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('VybeWhale Bot is running');
+    }
 });
 
 // Get port from environment or use a default
@@ -216,5 +306,77 @@ server.listen(PORT, () => {
     logger.info(`HTTP server listening on port ${PORT}`);
 });
 
-// Start the application
-initializeApp();
+// Set up a keep-alive ping to prevent Render from shutting down the service
+let keepAliveInterval;
+function setupKeepAlive() {
+    // Clear any existing interval
+    if (keepAliveInterval) clearInterval(keepAliveInterval);
+    
+    // Set up a new interval to ping the server every 14 minutes (less than Render's 15min timeout)
+    keepAliveInterval = setInterval(() => {
+        const options = {
+            hostname: 'localhost',
+            port: PORT,
+            path: '/ping',
+            method: 'GET'
+        };
+
+        const req = http.request(options, (res) => {
+            logger.debug(`Keep-alive ping successful: ${res.statusCode}`);
+        });
+
+        req.on('error', (error) => {
+            logger.error('Keep-alive ping failed:', error);
+            // If our ping fails, restart the HTTP server
+            try {
+                server.close(() => {
+                    server.listen(PORT, () => {
+                        logger.info('HTTP server restarted after failed ping');
+                    });
+                });
+            } catch (e) {
+                logger.error('Failed to restart HTTP server:', e);
+            }
+        });
+
+        req.end();
+    }, 14 * 60 * 1000); // 14 minutes
+
+    logger.info('Keep-alive ping mechanism initialized');
+}
+
+// Application initialization wrapper with retry
+function startWithRetry(maxRetries = 5, retryDelay = 30000) {
+    let retries = 0;
+    
+    function attemptStart() {
+        initializeApp().catch(error => {
+            logger.error(`Failed to initialize application (attempt ${retries + 1}/${maxRetries}):`, error);
+            
+            if (retries < maxRetries) {
+                retries++;
+                logger.info(`Retrying in ${retryDelay/1000} seconds...`);
+                setTimeout(attemptStart, retryDelay);
+            } else {
+                logger.error(`Maximum retries (${maxRetries}) reached. Please check the application logs.`);
+                // On Render, don't exit to prevent the service from being marked as failed
+                if (!process.env.RENDER) {
+                    process.exit(1);
+                } else {
+                    // Wait longer and try again
+                    setTimeout(() => {
+                        logger.info('Resetting retry count and starting again...');
+                        retries = 0;
+                        attemptStart();
+                    }, retryDelay * 2);
+                }
+            }
+        });
+    }
+    
+    attemptStart();
+    setupKeepAlive();
+}
+
+// Start the application with retry mechanism
+startWithRetry();
