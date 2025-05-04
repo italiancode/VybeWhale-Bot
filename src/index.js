@@ -1,6 +1,7 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const http = require('http');
+const https = require('https');
 const logger = require('./utils/logger');
 const stateManager = require('./utils/stateManager');
 const redisManager = require('./utils/redis');
@@ -432,35 +433,110 @@ function setupKeepAlive() {
     // Clear any existing interval
     if (keepAliveInterval) clearInterval(keepAliveInterval);
     
-    // Set up a new interval to ping the server every 14 minutes (less than Render's 15min timeout)
+    // Get server URL from environment or build it
+    const serverUrl = process.env.SERVER_URL || `http://localhost:${PORT}`;
+    const fullServerUrl = serverUrl.includes('://') ? serverUrl : `https://${serverUrl}`;
+    
+    logger.info(`Setting up keep-alive ping to ${fullServerUrl}`);
+    
+    // Set up a new interval to ping the server more frequently (every 5 minutes)
+    // Render's free tier spins down after 15 minutes of inactivity
     keepAliveInterval = setInterval(() => {
+        // Log less frequently to avoid filling logs
+        const shouldLog = Math.random() < 0.1; // Only log ~10% of pings
+        
+        // Make an HTTP request to our own service
+        const pingUrl = `${fullServerUrl}/ping`;
         const options = {
-            hostname: 'localhost',
-            port: PORT,
-            path: '/ping',
-            method: 'GET'
+            method: 'GET',
+            timeout: 10000, // 10-second timeout
         };
-
-        const req = http.request(options, (res) => {
-            logger.debug(`Keep-alive ping successful: ${res.statusCode}`);
+        
+        // Use native http or https based on URL
+        const httpClient = pingUrl.startsWith('https') ? require('https') : http;
+        
+        if (shouldLog) {
+            logger.debug(`Sending keep-alive ping to ${pingUrl}`);
+        }
+        
+        const req = httpClient.request(pingUrl, options, (res) => {
+            if (shouldLog) {
+                logger.debug(`Keep-alive ping response: ${res.statusCode}`);
+            }
+            
+            // Read the response data to properly close the connection
+            let rawData = '';
+            res.on('data', (chunk) => { rawData += chunk; });
         });
-
+        
         req.on('error', (error) => {
-            logger.error('Keep-alive ping failed:', error);
-            // If our ping fails, restart the HTTP server
+            logger.error(`Keep-alive ping failed: ${error.message}`);
+            
+            // If our standard ping fails, try an alternative approach
             try {
-                server.close(() => {
-                    server.listen(PORT, () => {
-                        logger.info('HTTP server restarted after failed ping');
-                    });
+                // Try to make a request directly to Render's app URL if we have the app name
+                const renderApp = process.env.RENDER_APP_NAME || 'vybewhale-bot';
+                const renderUrl = `https://${renderApp}.onrender.com/ping`;
+                
+                logger.info(`Attempting alternative ping to ${renderUrl}`);
+                
+                const altReq = https.request(renderUrl, { method: 'GET', timeout: 10000 }, (altRes) => {
+                    logger.info(`Alternative ping response: ${altRes.statusCode}`);
+                    
+                    // Read the response data
+                    let altData = '';
+                    altRes.on('data', (chunk) => { altData += chunk; });
                 });
-            } catch (e) {
-                logger.error('Failed to restart HTTP server:', e);
+                
+                altReq.on('error', (altError) => {
+                    logger.error(`Alternative ping also failed: ${altError.message}`);
+                });
+                
+                altReq.end();
+            } catch (backupError) {
+                logger.error(`Failed to perform backup ping: ${backupError.message}`);
             }
         });
-
+        
         req.end();
-    }, 14 * 60 * 1000); // 14 minutes
+    }, 5 * 60 * 1000); // Every 5 minutes instead of 14
+    
+    // Also set up an external ping service if configured
+    // This is crucial for keeping the Render free tier from sleeping
+    if (process.env.PING_URL) {
+        const pingTargets = process.env.PING_URL.split(',').map(url => url.trim());
+        
+        // Register our service with multiple ping services for redundancy
+        pingTargets.forEach(target => {
+            const pingUrl = target.replace('{url}', encodeURIComponent(fullServerUrl));
+            
+            logger.info(`Registering with external ping service: ${pingUrl}`);
+            
+            // Make a one-time request to register
+            const httpClient = pingUrl.startsWith('https') ? require('https') : http;
+            const req = httpClient.request(pingUrl, { method: 'GET', timeout: 30000 }, (res) => {
+                logger.info(`Ping service registration response: ${res.statusCode}`);
+                
+                // Read the response data
+                let pingData = '';
+                res.on('data', (chunk) => { pingData += chunk; });
+                res.on('end', () => {
+                    if (pingData.length > 0) {
+                        logger.debug(`Ping service response: ${pingData.substring(0, 100)}`);
+                    }
+                });
+            });
+            
+            req.on('error', (error) => {
+                logger.error(`Failed to register with ping service: ${error.message}`);
+            });
+            
+            req.end();
+        });
+    } else {
+        logger.info('No external ping service configured. Set PING_URL in env vars for better uptime.');
+        logger.info('Example services: https://cron-job.org, https://uptimerobot.com, https://cronitor.io');
+    }
 
     logger.info('Keep-alive ping mechanism initialized');
 }
