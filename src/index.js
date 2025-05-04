@@ -17,12 +17,15 @@ const { handleWhaleInput, handleWhaleCommand } = require('./commands/whale');
 const { handleListWallets } = require('./commands/listWallets');
 const { handleUntrackWalletCommand, handleUntrackWalletInput } = require('./commands/untrackWallet');
 
+// Global references for the server routes to access
+let globalBot = null;
+
 async function initializeApp() {
     try {
         // Initialize Redis
         const redisClient = await redisManager.initialize();
         
-        // Initialize bot with polling
+        // Initialize bot with polling with improved error handling and reconnection logic
         const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
             polling: {
                 interval: 300,
@@ -33,6 +36,12 @@ async function initializeApp() {
             }
         });
 
+        // Store bot reference globally
+        globalBot = bot;
+        
+        // Track bot state
+        let botActive = true;
+        
         // Setup alert system
         const alertService = new AlertService();
         await alertService.initialize(redisClient);
@@ -53,7 +62,7 @@ async function initializeApp() {
             { command: 'disablealerts', description: 'Disable specific alerts' }
         ]);
 
-        // Handle messages
+        // Handle messages with improved error handling
         bot.on('message', async (msg) => {
             try {
                 if (!msg.text) return; // Ignore non-text messages
@@ -158,52 +167,163 @@ async function initializeApp() {
                 }
             } catch (error) {
                 logger.error('Error handling message:', error);
-                await bot.sendMessage(msg.chat.id, 'Sorry, something went wrong. Please try again later.');
+                try {
+                    await bot.sendMessage(msg.chat.id, 'Sorry, something went wrong. Please try again later.');
+                } catch (sendError) {
+                    logger.error('Failed to send error message to user:', sendError);
+                }
             }
         });
 
-        // Add error handlers
+        // Improved error handling for polling errors
         bot.on('polling_error', (error) => {
+            logger.error('Polling error:', error.message || error);
+            
+            // Don't restart if we're deliberately stopping
+            if (!botActive) return;
+            
+            // Implement progressive backoff for reconnection
+            let reconnectDelay = 5000; // Start with 5 seconds
+            
             if (error.code === 'EFATAL') {
-                logger.error('Fatal polling error. Restarting polling...', error.message || error);
-                bot.stopPolling().then(() => {
-                    setTimeout(() => bot.startPolling(), 5000);
-                });
+                logger.error('Fatal polling error. Restarting polling with delay...', error.message || error);
+                reconnectDelay = 10000; // 10 seconds for fatal errors
             } else if (error.code === 'ETELEGRAM') {
                 logger.error('Telegram API error:', error.message || error);
-                // Don't kill the bot for Telegram API errors, just restart polling if needed
-                if (error.response && error.response.statusCode >= 500) {
-                    logger.info('Telegram server error, restarting polling after delay');
-                    bot.stopPolling().then(() => {
-                        setTimeout(() => bot.startPolling(), 10000);
-                    });
+                
+                // Handle rate limiting specially
+                if (error.response && error.response.statusCode === 429) {
+                    const retryAfter = error.response.body?.parameters?.retry_after || 30;
+                    reconnectDelay = (retryAfter * 1000) + 1000; // Convert to ms and add buffer
+                    logger.info(`Rate limited. Restarting polling after ${retryAfter} seconds`);
                 }
-            } else {
-                logger.error('Polling error:', error.message || error);
-                // Restart polling for other errors after a delay
-                setTimeout(() => {
-                    try {
-                        bot.startPolling();
-                        logger.info('Polling restarted after error');
-                    } catch (e) {
-                        logger.error('Failed to restart polling:', e);
-                    }
-                }, 15000);
+                // Handle Telegram server errors
+                else if (error.response && error.response.statusCode >= 500) {
+                    reconnectDelay = 15000; // 15 seconds for server errors
+                    logger.info('Telegram server error, restarting polling after delay');
+                }
             }
+            
+            // Implement the reconnection with the calculated delay
+            bot.stopPolling().then(() => {
+                logger.info(`Restarting polling in ${reconnectDelay/1000} seconds...`);
+                setTimeout(() => {
+                    if (botActive) {
+                        try {
+                            bot.startPolling();
+                            logger.info('Polling successfully restarted');
+                        } catch (e) {
+                            logger.error('Failed to restart polling:', e);
+                            // Try again with longer delay
+                            setTimeout(() => {
+                                try {
+                                    bot.startPolling();
+                                    logger.info('Polling restarted on second attempt');
+                                } catch (e2) {
+                                    logger.error('Failed to restart polling on second attempt:', e2);
+                                }
+                            }, reconnectDelay * 2);
+                        }
+                    }
+                }, reconnectDelay);
+            }).catch(stopError => {
+                logger.error('Error stopping polling:', stopError);
+                // Force restart polling after a longer delay
+                setTimeout(() => {
+                    if (botActive) {
+                        try {
+                            bot.startPolling();
+                            logger.info('Polling restarted after stop error');
+                        } catch (e) {
+                            logger.error('Failed to restart polling after stop error:', e);
+                        }
+                    }
+                }, reconnectDelay * 3);
+            });
         });
 
+        // Better error handling for general bot errors
         bot.on('error', (error) => {
             logger.error('Bot error:', error.message || error);
+            // Don't try to restart here - let the polling_error handler deal with it
+        });
+
+        // Telegram webhook errors
+        bot.on('webhook_error', (error) => {
+            logger.error('Webhook error:', error.message || error);
         });
 
         // Test bot token
         const botInfo = await bot.getMe();
         logger.info(`Bot connected successfully. Bot username: @${botInfo.username}`);
         logger.info('VybeWhale bot is running...');
+        
+        // Add self-healing watchdog
+        const watchdogInterval = setInterval(async () => {
+            try {
+                // Check if bot is still responsive
+                const isResponsive = await (async () => {
+                    try {
+                        const result = await bot.getMe();
+                        return !!result;
+                    } catch (error) {
+                        logger.error('Bot is not responsive to getMe():', error.message);
+                        return false;
+                    }
+                })();
+                
+                if (!isResponsive && botActive) {
+                    logger.warn('Watchdog detected unresponsive bot, restarting polling...');
+                    botActive = false; // Prevent multiple restarts
+                    
+                    try {
+                        await bot.stopPolling();
+                        
+                        // Wait a bit before restarting
+                        setTimeout(async () => {
+                            try {
+                                await bot.startPolling();
+                                botActive = true;
+                                logger.info('Bot polling restarted by watchdog');
+                            } catch (error) {
+                                logger.error('Failed to restart polling from watchdog:', error);
+                                // Try again after longer delay
+                                setTimeout(async () => {
+                                    try {
+                                        await bot.startPolling();
+                                        botActive = true;
+                                        logger.info('Bot polling restarted by watchdog (second attempt)');
+                                    } catch (e) {
+                                        logger.error('Watchdog failed to restart polling twice:', e);
+                                        // Try one last time with a complete reinitialization
+                                        botActive = true; // Allow the app to restart
+                                        setTimeout(() => {
+                                            initializeApp();
+                                        }, 30000);
+                                    }
+                                }, 15000);
+                            }
+                        }, 5000);
+                    } catch (error) {
+                        logger.error('Watchdog failed to stop polling:', error);
+                    }
+                }
+            } catch (error) {
+                logger.error('Watchdog error:', error);
+            }
+        }, 60000); // Check every minute
+        
+        // Return cleanup resources
+        return {
+            bot,
+            watchdogInterval,
+            botActive: () => botActive
+        };
 
     } catch (error) {
         logger.error('Failed to initialize application:', error);
-        process.exit(1);
+        globalBot = null; // Clear reference if initialization fails
+        throw error; // Rethrow to be handled by startWithRetry
     }
 }
 
@@ -274,7 +394,7 @@ const server = http.createServer((req, res) => {
     if (req.url === '/health' || req.url === '/') {
         // Return different status if the bot is not fully operational
         try {
-            const botStatus = bot ? 'connected' : 'disconnected';
+            const botStatus = globalBot ? 'connected' : 'disconnected';
             const redisStatus = redisManager.isConnected() ? 'connected' : 'disconnected';
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -348,9 +468,17 @@ function setupKeepAlive() {
 // Application initialization wrapper with retry
 function startWithRetry(maxRetries = 5, retryDelay = 30000) {
     let retries = 0;
+    let resources = null;
     
-    function attemptStart() {
-        initializeApp().catch(error => {
+    async function attemptStart() {
+        try {
+            // Clear any existing global reference before reinitialization
+            globalBot = null;
+            
+            resources = await initializeApp();
+            // Reset retries on successful start
+            retries = 0;
+        } catch (error) {
             logger.error(`Failed to initialize application (attempt ${retries + 1}/${maxRetries}):`, error);
             
             if (retries < maxRetries) {
@@ -371,11 +499,15 @@ function startWithRetry(maxRetries = 5, retryDelay = 30000) {
                     }, retryDelay * 2);
                 }
             }
-        });
+        }
     }
     
     attemptStart();
     setupKeepAlive();
+    
+    return {
+        getResources: () => resources
+    };
 }
 
 // Start the application with retry mechanism
