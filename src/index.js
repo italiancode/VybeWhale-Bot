@@ -1,5 +1,6 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
+const http = require('http');
 const logger = require('./utils/logger');
 const stateManager = require('./utils/stateManager');
 const redisManager = require('./utils/redis');
@@ -203,5 +204,17 @@ process.on('SIGTERM', async () => {
     process.exit(0);
 });
 
+// Create HTTP server for Render deployment
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('VybeWhale Bot is running');
+});
+
+// Get port from environment or use a default
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    logger.info(`HTTP server listening on port ${PORT}`);
+});
+
 // Start the application
-initializeApp(); 
+initializeApp();
