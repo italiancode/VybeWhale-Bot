@@ -120,8 +120,12 @@ async function processWhaleTransactions(bot, chatId, userId, tokenAddress) {
         return { symbol: "Unknown", name: "Unknown Token" };
       });
 
-    logger.info(`Fetching whale transactions for token ${tokenAddress} (${tokenInfo.symbol || 'Unknown'})`);
-    
+    logger.info(
+      `Fetching whale transactions for token ${tokenAddress} (${
+        tokenInfo.symbol || "Unknown"
+      })`
+    );
+
     // Add a timeout to prevent long-running requests
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error("Request timeout")), 15000);
@@ -152,15 +156,17 @@ async function processWhaleTransactions(bot, chatId, userId, tokenAddress) {
     if (!transactions || transactions.length === 0) {
       // No transactions found, provide more helpful message
       const tokenSymbol = tokenInfo.symbol || "this token";
-      const message = 
+      const message =
         `ℹ️ *No whale transactions available*\n\n` +
-        `No recent whale transactions found for *${tokenSymbol}* with minimum amount of $${Number(minUsdAmount).toLocaleString()}.\n\n` +
+        `No recent whale transactions found for *${tokenSymbol}* with minimum amount of $${Number(
+          minUsdAmount
+        ).toLocaleString()}.\n\n` +
         `This could be because:\n` +
         `• The token is new or has low trading volume\n` +
         `• No recent transactions exceed the minimum value\n` +
         `• This token is not yet tracked by Vybe Network\n\n` +
         `📊 [View Token on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress}) for all available data`;
-      
+
       await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
       stateManager.clearState(userId);
       return;
@@ -218,7 +224,7 @@ function formatWhaleTransactions(
   const tokenName = tokenInfo.name || "Unknown Token";
 
   // Enhanced title with whale emoji and more professional crypto style
-  let message = `🐋 *${tokenSymbol} WHALE ALERT* 🐋\n`;
+  let message = `🐋 *${tokenSymbol} WHALE ALERT* [📊](https://alpha.vybenetwork.com/tokens/${tokenAddress})\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
   transactions.forEach((tx) => {
@@ -238,9 +244,11 @@ function formatWhaleTransactions(
     } else if (tx.usdAmount) {
       usdValue = parseFloat(tx.usdAmount);
     }
-    
+
     // Format as integer with commas
-    const usdAmount = usdValue ? Math.round(usdValue).toLocaleString() : "Unknown";
+    const usdAmount = usdValue
+      ? Math.round(usdValue).toLocaleString()
+      : "Unknown";
 
     // Extract raw token amount
     let tokenAmount = "Unknown";
@@ -256,14 +264,18 @@ function formatWhaleTransactions(
     let formattedTokenAmount;
     if (typeof tokenAmount === "number" || !isNaN(parseFloat(tokenAmount))) {
       // Convert to a number if it's a string
-      const numAmount = typeof tokenAmount === "number" ? tokenAmount : parseFloat(tokenAmount);
-      
+      const numAmount =
+        typeof tokenAmount === "number" ? tokenAmount : parseFloat(tokenAmount);
+
       // Extremely small numbers (use scientific notation)
       if (numAmount > 0 && numAmount < 0.001) {
         formattedTokenAmount = numAmount.toPrecision(3);
       }
       // Whole numbers - no decimal places
-      else if (Number.isInteger(numAmount) || Math.round(numAmount) === numAmount) {
+      else if (
+        Number.isInteger(numAmount) ||
+        Math.round(numAmount) === numAmount
+      ) {
         formattedTokenAmount = Math.round(numAmount).toLocaleString();
       }
       // Numbers that look like integers with many trailing zeros
@@ -274,7 +286,7 @@ function formatWhaleTransactions(
       else {
         formattedTokenAmount = numAmount.toLocaleString(undefined, {
           minimumFractionDigits: 0,
-          maximumFractionDigits: 2
+          maximumFractionDigits: 2,
         });
       }
     } else {
@@ -359,13 +371,18 @@ function formatWhaleTransactions(
       message += `📍 *Venue:* ${venue}\n`;
     }
 
+    // Add Solscan verification link if signature is available
+    if (tx.signature) {
+      message += `🔍 [Verify on Solscan](solscan.io/tx/${tx.signature})\n`;
+    }
+
     message += `\n`;
   });
 
-  // More professional footer with call-to-action
+  // Ensure Vybe Network is the first link in the message - this will be used as the preview
   message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `🔍 *Track ${tokenSymbol} on Vybe:*\n`;
-  message += `[View Full Activity + Charts](https://alpha.vybenetwork.com/tokens/${tokenAddress})`;
+  message += `📊 [View Full Activity on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})\n`;
+  // message += `🔔 Use /token ${tokenAddress} for detailed metrics\n`;
 
   return message;
 }
