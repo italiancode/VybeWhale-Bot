@@ -47,6 +47,7 @@ async function handleWhaleCommand(bot, msg) {
       `🐋 *Whale Transaction Tracker*\n\n` +
       `Please enter the *Solana token address* to track large transactions.\n\n` +
       `🔹 *Example:* \`So11111111111111111111111111111111111111112\` _(SOL token)_\n\n` +
+      `Note: Whale tracking is only available for established tokens with significant trading volume.\n\n` +
       `This will show recent large transactions for the specified token.`;
 
     await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
@@ -119,18 +120,21 @@ async function processWhaleTransactions(bot, chatId, userId, tokenAddress) {
         return { symbol: "Unknown", name: "Unknown Token" };
       });
 
+    logger.info(`Fetching whale transactions for token ${tokenAddress} (${tokenInfo.symbol || 'Unknown'})`);
+    
     // Add a timeout to prevent long-running requests
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error("Request timeout")), 15000);
     });
 
-    // Use the specialized whaleTransactions module with a timeout
+    // Use the specialized getWhaleTransactions from the whaleTransactions module
     const transactionsPromise = getWhaleTransactions(
       tokenAddress,
       minUsdAmount,
       limit
     );
 
+    // Race the transaction fetch against a timeout
     const transactions = await Promise.race([
       transactionsPromise,
       timeoutPromise,
@@ -146,17 +150,18 @@ async function processWhaleTransactions(bot, chatId, userId, tokenAddress) {
     );
 
     if (!transactions || transactions.length === 0) {
-      // No transactions found, provide a link to view on the website
-      await bot.sendMessage(
-        chatId,
-        `No recent whale transactions found for ${
-          tokenInfo.symbol || "this token"
-        } with minimum amount of $${Number(
-          minUsdAmount
-        ).toLocaleString()}.\n\n` +
-          `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})`,
-        { parse_mode: "Markdown" }
-      );
+      // No transactions found, provide more helpful message
+      const tokenSymbol = tokenInfo.symbol || "this token";
+      const message = 
+        `ℹ️ *No whale transactions available*\n\n` +
+        `No recent whale transactions found for *${tokenSymbol}* with minimum amount of $${Number(minUsdAmount).toLocaleString()}.\n\n` +
+        `This could be because:\n` +
+        `• The token is new or has low trading volume\n` +
+        `• No recent transactions exceed the minimum value\n` +
+        `• This token is not yet tracked by Vybe Network\n\n` +
+        `📊 [View Token on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress}) for all available data`;
+      
+      await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
       stateManager.clearState(userId);
       return;
     }

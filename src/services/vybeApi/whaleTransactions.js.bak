@@ -1,0 +1,23 @@
+// src/services/vybeApi/whaleTransactions.js
+const vybeApi = require("@api/vybe-api");
+const logger = require("../../utils/logger");
+
+// Initialize the API with your key
+vybeApi.auth(process.env.VYBE_API_KEY);
+
+/**
+ * Fetches whale transactions using the Vybe API SDK
+ */
+async function getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
+  try {
+    const { data } = await vybeApi.get_token_transfers(mintAddress);
+    return data;
+  } catch (error) {
+    logger.error("Error fetching whale transactions:", error);
+    throw error;
+  }
+}
+
+module.exports = {
+  getWhaleTransactions,
+};

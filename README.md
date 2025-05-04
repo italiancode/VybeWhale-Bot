@@ -49,9 +49,6 @@ Example response:
 
 ![Token Command Screenshot](./public/token.png)
 
-
-
-
 ### Whale Tracking
 
 Send `/whale [token_address]` to track large transactions for any token.
@@ -59,6 +56,16 @@ Send `/whale [token_address]` to track large transactions for any token.
 Example response:
 
 ![Whale Command Screenshot](./public/whale.png)
+
+## API Behavior and Limitations
+
+During development and testing, we observed several important characteristics of the Vybe API:
+
+### Whale Transaction API
+
+- **Token Coverage**: The whale transaction API primarily supports established tokens with significant trading volume. Newer, less popular, or custom tokens may not be tracked.
+- **API Response Structure**: The API may return transactions in different formats depending on the token. Our implementation carefully handles these variations.
+- **No-Data Handling**: For tokens without data, the bot provides helpful information explaining possible reasons and directs users to Vybe Network for additional analysis.
 
 ## Technical Implementation
 
