@@ -1,3 +1,6 @@
+const {
+  getWhaleTransactions,
+} = require("../services/vybeApi/whaleTransactions");
 const vybeApi = require("../services/vybeApi");
 const logger = require("../utils/logger");
 const stateManager = require("../utils/stateManager");
@@ -109,25 +112,49 @@ async function processWhaleTransactions(bot, chatId, userId, tokenAddress) {
     const limit = 3;
 
     // Get token info for symbol and name
-    const tokenInfo = await vybeApi.getTokenInfo(tokenAddress)
-      .catch(error => {
+    const tokenInfo = await vybeApi
+      .getTokenInfo(tokenAddress)
+      .catch((error) => {
         logger.error("Error fetching token info:", error);
         return { symbol: "Unknown", name: "Unknown Token" };
       });
 
-    // Use the specialized method for bot whale transactions
-    const transactions = await vybeApi.getBotWhaleTransactions(
+    // Add a timeout to prevent long-running requests
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Request timeout")), 15000);
+    });
+
+    // Use the specialized whaleTransactions module with a timeout
+    const transactionsPromise = getWhaleTransactions(
       tokenAddress,
       minUsdAmount,
       limit
+    );
+
+    const transactions = await Promise.race([
+      transactionsPromise,
+      timeoutPromise,
+    ]).catch((error) => {
+      logger.error(`Whale transaction fetch error: ${error.message}`);
+      return [];
+    });
+
+    logger.info(
+      `Found ${
+        transactions?.length || 0
+      } whale transactions for ${tokenAddress}`
     );
 
     if (!transactions || transactions.length === 0) {
       // No transactions found, provide a link to view on the website
       await bot.sendMessage(
         chatId,
-        `No recent whale transactions found for ${tokenInfo.symbol || "this token"} with minimum amount of $${Number(minUsdAmount).toLocaleString()}.\n\n` +
-        `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})`,
+        `No recent whale transactions found for ${
+          tokenInfo.symbol || "this token"
+        } with minimum amount of $${Number(
+          minUsdAmount
+        ).toLocaleString()}.\n\n` +
+          `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})`,
         { parse_mode: "Markdown" }
       );
       stateManager.clearState(userId);
@@ -152,77 +179,189 @@ async function processWhaleTransactions(bot, chatId, userId, tokenAddress) {
       lastTokenSymbol: tokenInfo.symbol || "Unknown Token",
     });
   } catch (error) {
-    logger.error("Error fetching whale transactions:", error);
-    const errorMessage = error.response?.data?.message || error.message;
-    
+    logger.error("Error in processWhaleTransactions:", error.message);
+
+    let errorMessage = "⚠️ Error fetching whale transactions. ";
+
+    if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+      errorMessage += "The request timed out. ";
+    } else if (error.response?.status === 429) {
+      errorMessage += "The API rate limit has been reached. ";
+    } else if (error.response?.status >= 500) {
+      errorMessage += "The API is currently experiencing issues. ";
+    } else {
+      errorMessage += "Please try again later. ";
+    }
+
     await bot.sendMessage(
       chatId,
-      `⚠️ Error fetching whale transactions. The API might be experiencing high load.\n\n` + 
-      `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})`,
+      `${errorMessage}\n\n` +
+        `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})`,
       { parse_mode: "Markdown" }
     );
     stateManager.clearState(userId);
   }
 }
 
-function formatWhaleTransactions(transactions, tokenInfo, minUsdAmount, tokenAddress) {
+function formatWhaleTransactions(
+  transactions,
+  tokenInfo,
+  minUsdAmount,
+  tokenAddress
+) {
   const tokenSymbol = tokenInfo.symbol || "Unknown";
   const tokenName = tokenInfo.name || "Unknown Token";
 
-  let message = `🐋 *Whale Transactions for ${tokenSymbol}* (${tokenName})\n`;
-  message += `💰 Minimum amount: $${Number(minUsdAmount).toLocaleString()}\n\n`;
+  // Enhanced title with whale emoji and more professional crypto style
+  let message = `🐋 *${tokenSymbol} WHALE ALERT* 🐋\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-  transactions.forEach((tx, index) => {
-    // Format date
-    const date = tx.blockTime 
-      ? new Date(tx.blockTime * 1000).toLocaleString() 
-      : new Date().toLocaleString();
-    
-    // Format amounts
-    const usdAmount = tx.usdAmount 
-      ? `$${Number(tx.usdAmount).toLocaleString()}` 
-      : "Unknown";
-    
-    const tokenAmount = tx.tokenAmount 
-      ? Number(tx.tokenAmount).toLocaleString() 
-      : "Unknown";
-    
-    // Determine transaction type
-    const direction = tx.type || tx.tokenTransferType || "TRANSFER";
-    let directionEmoji = "↔️";
-    if (direction.toUpperCase() === "BUY") directionEmoji = "🟢";
-    if (direction.toUpperCase() === "SELL") directionEmoji = "🔴";
-    
-    // Format addresses
-    const fromAddress = tx.fromAddress || tx.senderAddress || "Unknown";
-    const toAddress = tx.toAddress || tx.receiverAddress || "Unknown";
-    
-    const shortFromAddress = fromAddress !== "Unknown"
-      ? `${fromAddress.substring(0, 4)}...${fromAddress.substring(fromAddress.length - 4)}`
-      : "Unknown";
-    
-    const shortToAddress = toAddress !== "Unknown"
-      ? `${toAddress.substring(0, 4)}...${toAddress.substring(toAddress.length - 4)}`
-      : "Unknown";
-    
-    message += `${index + 1}. ${directionEmoji} *${direction.toUpperCase()}* - ${usdAmount}\n`;
-    message += `   🔢 ${tokenAmount} ${tokenSymbol}\n`;
-    message += `   👤 From: \`${shortFromAddress}\` To: \`${shortToAddress}\`\n`;
-    message += `   🕒 ${date}\n`;
-    
-    // Add transaction explorer link if available
-    if (tx.txId || tx.signature) {
-      const txId = tx.txId || tx.signature;
-      message += `   🔍 [View Transaction](https://solscan.io/tx/${txId})\n`;
+  transactions.forEach((tx) => {
+    // Determine what happened in plain language
+    const direction =
+      tx.transactionType ||
+      tx.type ||
+      tx.side ||
+      (tx.senderAddress && tx.receiverAddress ? "TRANSFER" : "TRADE");
+
+    const directionText = direction.toUpperCase();
+
+    // Ultra-simple dollar amount formatting - only whole dollars, no cents
+    let usdValue = 0;
+    if (tx.valueUsd) {
+      usdValue = parseFloat(tx.valueUsd);
+    } else if (tx.usdAmount) {
+      usdValue = parseFloat(tx.usdAmount);
     }
     
-    message += "\n";
+    // Format as integer with commas
+    const usdAmount = usdValue ? Math.round(usdValue).toLocaleString() : "Unknown";
+
+    // Extract raw token amount
+    let tokenAmount = "Unknown";
+    if (tx.calculatedAmount) {
+      tokenAmount = tx.calculatedAmount;
+    } else if (tx.tokenAmount) {
+      tokenAmount = tx.tokenAmount;
+    } else if (tx.amount && tx.decimal) {
+      tokenAmount = Number(tx.amount) / Math.pow(10, tx.decimal);
+    }
+
+    // Ultra-simple token formatting - guaranteed to remove trailing zeros
+    let formattedTokenAmount;
+    if (typeof tokenAmount === "number" || !isNaN(parseFloat(tokenAmount))) {
+      // Convert to a number if it's a string
+      const numAmount = typeof tokenAmount === "number" ? tokenAmount : parseFloat(tokenAmount);
+      
+      // Extremely small numbers (use scientific notation)
+      if (numAmount > 0 && numAmount < 0.001) {
+        formattedTokenAmount = numAmount.toPrecision(3);
+      }
+      // Whole numbers - no decimal places
+      else if (Number.isInteger(numAmount) || Math.round(numAmount) === numAmount) {
+        formattedTokenAmount = Math.round(numAmount).toLocaleString();
+      }
+      // Numbers that look like integers with many trailing zeros
+      else if (numAmount >= 1000) {
+        formattedTokenAmount = Math.round(numAmount).toLocaleString();
+      }
+      // For other numbers, simplify to at most 2 decimal places
+      else {
+        formattedTokenAmount = numAmount.toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2
+        });
+      }
+    } else {
+      formattedTokenAmount = tokenAmount;
+    }
+
+    // Improved transaction descriptions with more crypto-friendly language
+    let actionDescription = "";
+    if (directionText.includes("BUY")) {
+      actionDescription = `Whale accumulated ${formattedTokenAmount} ${tokenSymbol} ($${usdAmount})`;
+    } else if (directionText.includes("SELL")) {
+      actionDescription = `Whale dumped ${formattedTokenAmount} ${tokenSymbol} ($${usdAmount})`;
+    } else if (directionText.includes("TRANSFER")) {
+      actionDescription = `Whale moved ${formattedTokenAmount} ${tokenSymbol} ($${usdAmount})`;
+    } else if (directionText.includes("SWAP")) {
+      actionDescription = `Whale swapped ${formattedTokenAmount} ${tokenSymbol} ($${usdAmount})`;
+    } else {
+      actionDescription = `${formattedTokenAmount} ${tokenSymbol} ($${usdAmount}) major position change`;
+    }
+
+    // Format addresses for wallet information
+    const fromAddress = tx.senderAddress || tx.fromAddress || tx.maker;
+    const toAddress = tx.receiverAddress || tx.toAddress || tx.taker;
+
+    let walletInfo = "";
+    if (fromAddress && toAddress) {
+      const shortFrom = `${fromAddress.substring(
+        0,
+        4
+      )}...${fromAddress.substring(fromAddress.length - 4)}`;
+      const shortTo = `${toAddress.substring(0, 4)}...${toAddress.substring(
+        toAddress.length - 4
+      )}`;
+
+      // Add wallet info for transfers as requested
+      if (directionText.includes("TRANSFER")) {
+        walletInfo = `📤 From: \`${shortFrom}\`\n📥 To: \`${shortTo}\``;
+      }
+    }
+
+    // Format date in simple terms
+    const date = tx.blockTime
+      ? new Date(tx.blockTime * 1000).toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : new Date().toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+    // Enhanced emoji indicators for different transaction types
+    let emoji = "🔔"; // Default
+    if (directionText.includes("BUY")) {
+      emoji = "🟢"; // Green for buy
+    } else if (directionText.includes("SELL")) {
+      emoji = "🔴"; // Red for sell
+    } else if (directionText.includes("TRANSFER")) {
+      emoji = "➡️"; // Arrow for transfer
+    } else if (directionText.includes("SWAP")) {
+      emoji = "🔄"; // Arrows for swap
+    }
+
+    // Build a more professional message with better spacing and formatting
+    message += `${emoji} *${actionDescription}*\n`;
+
+    // Add wallet information for transfers as requested
+    if (walletInfo) {
+      message += `${walletInfo}\n`;
+    }
+
+    // Add when it happened with better formatting
+    message += `⏰ *Time:* ${date}\n`;
+
+    // Add where it happened if available
+    const venue = tx.marketplaceName || tx.dex || "";
+    if (venue) {
+      message += `📍 *Venue:* ${venue}\n`;
+    }
+
+    message += `\n`;
   });
 
-  // Add link to view all transactions on Vybe Network
-  message += `📊 [View All Transactions on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenAddress})\n\n`;
-  message += `Data provided by Vybe API`;
-  
+  // More professional footer with call-to-action
+  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `🔍 *Track ${tokenSymbol} on Vybe:*\n`;
+  message += `[View Full Activity + Charts](https://alpha.vybenetwork.com/tokens/${tokenAddress})`;
+
   return message;
 }
 

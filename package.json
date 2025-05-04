@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "frontend": "nodemon src/frontend/server.js",
-    "test": "jest",
+    "test": "node src/test/whale.js",
     "test:watch": "jest --watch",
     "// Git Commands": "--------------------Git Commands-------------------",
     "git-commit-push": "git diff-index --quiet HEAD || (git add . && git commit -m \"Something just got updated!\" --allow-empty && git push origin main)",
