@@ -33,6 +33,12 @@ cd VybeWhale-Bot
 
 4. Run the bot with `npm start`
 
+## Getting Started
+
+Start the bot by sending the `/start` command:
+
+![Start Bot](./public/start%20bot.png)
+
 ## Usage Examples
 
 ### Token Analysis
@@ -41,21 +47,10 @@ Send `/token [token_address]` to get detailed information about any Solana token
 
 Example response:
 
-```
-📊 TOKEN: SOL (Wrapped SOL)
-━━━━━━━━━━━━━━━━━━
-💰 Price: $152.43 (+2.31%)
-💎 Market Cap: $76.2B
-⚖️ Circulating Supply: 500M
-📈 Volume (24h): $2.4B
+![Token Command Screenshot](./public/token.png)
 
-🥇 Top Holders:
-1. 0xabc...def9 - 5.2%
-2. 0x123...789f - 3.1%
-3. 0xdef...abc1 - 2.6%
-```
 
-![Token Command Screenshot]
+
 
 ### Whale Tracking
 
@@ -63,24 +58,7 @@ Send `/whale [token_address]` to track large transactions for any token.
 
 Example response:
 
-```
-🐋 Whale Transactions for PUMP (Pump.fun)
-💰 Minimum amount: $5,000
-
-1. 🟢 BUY - $25,450
-   🔢 325,000 PUMP
-   👤 From: `7Wfr...j2kP` To: `cUB2...8vTg`
-   🕒 4/28/2025, 10:35:24 AM
-
-2. 🔴 SELL - $18,270
-   🔢 230,000 PUMP
-   👤 From: `hGtP...p9sC` To: `rNk5...mXv7`
-   🕒 4/28/2025, 10:21:16 AM
-
-📊 View All Transactions on Vybe Network
-```
-
-![Whale Command Screenshot]
+![Whale Command Screenshot](./public/whale.png)
 
 ## Technical Implementation
 
