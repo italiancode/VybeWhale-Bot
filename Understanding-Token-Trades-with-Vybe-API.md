@@ -12,7 +12,7 @@ The Vybe Network API helps us see details of these trades, like who made the tra
 
 ---
 
-## How the Code Works: A Layperson’s Explanation
+## How the Code Works: A Simple Explanation
 
 The code we’re discussing is a JavaScript program that talks to the Vybe API to get trade data for a specific token pair (e.g., BONK/SOL). Think of the code as a librarian who goes to a library (the Vybe API) to find books (trade data) based on certain instructions (parameters).
 
