@@ -1,4 +1,4 @@
-Below is a detailed **context markdown** that explains how the provided code works to fetch token trades using the Vybe Network API, how the API accepts its parameters, and how this process can be understood in simple terms for a layperson. The markdown is structured to be clear, concise, and accessible while maintaining technical accuracy.
+Below is a detailed **context markdown** that explains how the provided code works to fetch token trades using the Vybe Network API, how the API accepts its parameters, and how this process can be understood in simple terms Simple Explaination. The markdown is structured to be clear, concise, and accessible while maintaining technical accuracy.
 
 ---
 
@@ -31,7 +31,7 @@ vybeApi.auth(process.env.VYBE_API_KEY);
 ```
 
 - **What’s Happening?** The code uses a special key (`VYBE_API_KEY`) to prove it’s allowed to access the Vybe API. Without this key, the API won’t share any data—just like needing a library card to borrow books.
-- **For a Layperson:** Think of this as showing your ID to the librarian so they trust you to look at their records.
+- **Simple Explaination:** Think of this as showing your ID to the librarian so they trust you to look at their records.
 
 ### 2. **Defining the Request: What Trades to Fetch**
 The code has a function called `getTokenTrades` that asks the Vybe API for trade data:
@@ -51,7 +51,7 @@ async function getTokenTrades({
   - **Where to look:** `programIds` tells the API which DEXs (like Raydium or Orca) to check. If set to `null`, it looks everywhere Vybe supports.
   - **How far back to look:** `timeRangeHours` (e.g., 24 hours) sets the time period, like saying, “Show me trades from the last day.”
   - **How many trades to show:** `limitPerProgram` (e.g., 10) limits the number of trades to avoid getting too much data at once.
-- **For a Layperson:** Imagine telling the librarian, “I want to know about apple-orange trades from the past day, and I only want to see the 10 most recent ones. Check all the markets you know about.”
+- **Simple Explaination:** Imagine telling the librarian, “I want to know about apple-orange trades from the past day, and I only want to see the 10 most recent ones. Check all the markets you know about.”
 
 ### 3. **Sending the Request to Vybe API**
 The code sends the request to the Vybe API:
@@ -69,7 +69,7 @@ const response = await vybeApi.get_trade_data_program({
 ```
 
 - **What’s Happening?** The code calls the `get_trade_data_program` endpoint (https://api.vybenetwork.xyz/token/trades) to fetch the trades. It sets `programId` to `null` to look across all DEXs, specifies the token pair (`baseMintAddress` and `quoteMintAddress`), sets the time range (`timeStart` and `timeEnd`), and sorts the results by the most recent trades (`sortByDesc: "blocktime"`).
-- **For a Layperson:** This is like the librarian going through all their records to find apple-orange trades from the past day and bringing back the 10 most recent ones, sorted from newest to oldest.
+- **Simple Explaination:** This is like the librarian going through all their records to find apple-orange trades from the past day and bringing back the 10 most recent ones, sorted from newest to oldest.
 
 ### 4. **Processing the Response**
 The code takes the data from the API and formats it to make it easier to read:
@@ -97,7 +97,7 @@ const formattedTrades = allTrades.map((trade) => ({
   - **Buy or Sell:** `direction` (whether the trader bought or sold the quote token, e.g., SOL).
   - **Price and Amounts:** `price` (how much SOL per BONK), `baseSize` (amount of BONK), `quoteSize` (amount of SOL).
   - **Where it happened:** `programId` (the DEX, like Raydium or Orca).
-- **For a Layperson:** The librarian hands you a list of trades, and you write down the important details in a notebook: who traded, when, what they swapped, and how much they paid.
+- **Simple Explaination:** The librarian hands you a list of trades, and you write down the important details in a notebook: who traded, when, what they swapped, and how much they paid.
 
 ### 5. **Showing the Results**
 The code prints the formatted trades:
@@ -118,7 +118,7 @@ trades.forEach((trade, index) => {
 ```
 
 - **What’s Happening?** The code displays the trades in a readable format, showing the DEX, token pair, whether it was a buy or sell, the price, amounts, and when it happened.
-- **For a Layperson:** You read your notebook aloud: “Trade 1: On Raydium, someone swapped 1 million BONK for 22.5 SOL at a price of 0.0000225 SOL per BONK on May 7, 2025.”
+- **Simple Explaination:** You read your notebook aloud: “Trade 1: On Raydium, someone swapped 1 million BONK for 22.5 SOL at a price of 0.0000225 SOL per BONK on May 7, 2025.”
 
 ---
 
@@ -128,7 +128,7 @@ The Vybe API’s `get_trade_data_program` endpoint (https://api.vybenetwork.xyz/
 
 ### Parameters the API Accepts
 
-| **Parameter**        | **What It Means (For a Layperson)**                                                                 | **Example Value**                          |
+| **Parameter**        | **What It Means (Simple Explaination)**                                                                 | **Example Value**                          |
 |----------------------|-----------------------------------------------------------------------------------------------------|--------------------------------------------|
 | `programId`          | Which market to check for trades (e.g., Raydium, Orca). Set to `null` to check all markets.         | `null` (checks all markets) or `675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8` (Raydium) |
 | `baseMintAddress`    | The first token in the pair you’re interested in (e.g., BONK).                                      | `DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263` (BONK) |
@@ -152,7 +152,7 @@ The Vybe API’s `get_trade_data_program` endpoint (https://api.vybenetwork.xyz/
   - Use `marketId` to find trades in a specific market (ignores the token pair).
 - **Default Behavior:** If you don’t set `programId`, the API looks at **all supported markets** (Raydium, Orca, Jupiter, etc.) for the last 14 days. If you don’t set `timeStart` and `timeEnd`, it uses the last 14 days by default.
 - **Sorting:** Use `sortByDesc: "blocktime"` to get the newest trades first, which is what the code does.
-- **For a Layperson:** Think of these parameters as telling the librarian, “Find me trades for apples and oranges (or just apples), check all markets, from yesterday to today, and show me the 10 newest ones.”
+- **Simple Explaination:** Think of these parameters as telling the librarian, “Find me trades for apples and oranges (or just apples), check all markets, from yesterday to today, and show me the 10 newest ones.”
 
 ---
 
@@ -221,7 +221,7 @@ Recent BONK/SOL trades across all programs:
 ---
 ```
 
-- **For a Layperson:** This output says:
+- **Simple Explaination:** This output says:
   - On Raydium, someone sold 1 million BONK for 22.5 SOL at a price of 0.0000225 SOL per BONK on May 7, 2025.
   - On Orca, someone sold 500,000 BONK for 11.24 SOL at a price of 0.00002248 SOL per BONK on May 7, 2025.
 
@@ -233,7 +233,7 @@ This code helps you see who’s trading tokens like BONK and SOL, how much they�
 
 ---
 
-## Key Takeaways for a Layperson
+## Key Takeaways Simple Explaination
 
 - The code is like a librarian that fetches trade records from the Vybe API library.
 - It asks for trades of a specific pair (e.g., BONK/SOL) from the past day, across all markets.
