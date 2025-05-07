@@ -230,14 +230,3 @@ Recent BONK/SOL trades across all programs:
 ## Why This Matters
 
 This code helps you see who’s trading tokens like BONK and SOL, how much they’re trading, and at what price. It’s like having a window into a busy marketplace where you can watch people swap digital coins. By checking all markets (not just Raydium), you get a complete picture of the trading activity, which can help you understand market trends or make better trading decisions.
-
----
-
-## Key Takeaways Simple Explaination
-
-- The code is like a librarian that fetches trade records from the Vybe API library.
-- It asks for trades of a specific pair (e.g., BONK/SOL) from the past day, across all markets.
-- The Vybe API needs specific instructions (parameters) like which tokens to look for, where to look, and how many trades to show.
-- The output tells you who traded, what they traded, how much, and when—in a way that’s easy to read.
-
-If you have more questions or want to see trades for other tokens, let me know!
