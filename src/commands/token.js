@@ -1,6 +1,7 @@
 const logger = require("../utils/logger");
 const stateManager = require("../utils/stateManager");
 const vybeApi = require("../services/vybeApi");
+const tokenHolders = require("../services/vybeApi/tokenHolders");
 
 async function handleTokenCommand(bot, msg) {
   try {
@@ -57,21 +58,30 @@ async function processTokenInput(bot, msg, tokenInput) {
 
     await bot.sendChatAction(chatId, "typing");
 
+    // Get token info with basic data
     const tokenInfo = await vybeApi.getTokenInfo(tokenInput);
 
-    const [topHolders, transferVolume] = await Promise.all([
-      vybeApi.getTokenTopHolders(tokenInput).catch(() => null),
-      vybeApi
-        .getTokenTransferVolume(tokenInput, Date.now() - 86400000, Date.now())
-        .catch(() => null),
-    ]);
+    // Get holder trend data
+    let holderData = null;
+    try {
+      holderData = await tokenHolders.getHoldersTrend(tokenInput, 30);
+      
+      // If holderData.current is 0 but token info has a holderCount, use that
+      if (holderData && holderData.current === 0 && tokenInfo.holderCount) {
+        holderData.current = tokenInfo.holderCount;
+      }
+    } catch (holderError) {
+      logger.error(`Error getting holder trend for ${tokenInput}:`, holderError);
+      // Create a basic holder data object with just the current count from tokenInfo
+      holderData = { 
+        current: tokenInfo.holderCount || 0, 
+        trend7d: null, 
+        trend30d: null 
+      };
+    }
 
-    const response = formatTokenInfo(
-      tokenInfo,
-      topHolders,
-      transferVolume,
-      bot
-    );
+    // Format and send response
+    const response = formatTokenInfo(tokenInfo, holderData);
     await bot.sendMessage(chatId, response, { parse_mode: "Markdown" });
 
     // Store the last analyzed token
@@ -88,6 +98,7 @@ async function processTokenInput(bot, msg, tokenInput) {
       apiError.response ? apiError.response.data : apiError
     );
 
+    const chatId = msg.chat.id;
     if (apiError.response?.status === 404) {
       await bot.sendMessage(
         chatId,
@@ -144,17 +155,22 @@ async function handleTokenInput(bot, msg) {
   }
 }
 
-function formatTokenInfo(tokenInfo, topHolders, transferVolume, bot) {
+function formatTokenInfo(tokenInfo, holderData) {
   const formatNumber = (num) => {
-    if (!num && num !== 0) return "N/A";
+    if (num === null || num === undefined) return "N/A";
     
+    // For integers or round numbers, don't add decimals
+    if (Number.isInteger(num)) {
+      return num.toLocaleString();
+    }
+
     // For very precise small numbers (like some token prices)
-    if (num < 0.000001) {
+    if (num < 0.000001 && num > 0) {
       return num.toExponential(6);
     }
-    
+
     // For numbers less than 1 but greater than 0.000001
-    if (num < 1) {
+    if (num < 1 && num > 0) {
       const decimals = Math.max(8, -Math.floor(Math.log10(num)));
       return num.toFixed(decimals);
     }
@@ -163,7 +179,7 @@ function formatTokenInfo(tokenInfo, topHolders, transferVolume, bot) {
     if (num >= 1_000_000_000_000) {
       return `${(num / 1_000_000_000_000).toLocaleString(undefined, {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
       })}T`;
     }
 
@@ -171,30 +187,30 @@ function formatTokenInfo(tokenInfo, topHolders, transferVolume, bot) {
     if (num >= 1_000_000_000) {
       return `${(num / 1_000_000_000).toLocaleString(undefined, {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
       })}B`;
     }
-    
+
     // For millions
     if (num >= 1_000_000) {
       return `${(num / 1_000_000).toLocaleString(undefined, {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
       })}M`;
     }
-    
+
     // For thousands
     if (num >= 1_000) {
       return `${(num / 1_000).toLocaleString(undefined, {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
       })}K`;
     }
-    
+
     // For numbers between 1 and 999
     return num.toLocaleString(undefined, {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     });
   };
 
@@ -219,6 +235,40 @@ function formatTokenInfo(tokenInfo, topHolders, transferVolume, bot) {
     return change > 0 ? `🟢 +${change}%` : `🔴 ${change}%`;
   };
 
+  // Format holders trend data
+  const formatHoldersTrend = () => {
+    if (!holderData) return 'N/A';
+    
+    const { trend7d, trend30d, periodDays } = holderData;
+    let trendText = '';
+    
+    if (trend7d !== null) {
+      const trend7dFormatted = trend7d.toFixed(2);
+      trendText += trend7d > 0 ? 
+        `7d: 🟢 +${trend7dFormatted}%` : 
+        `7d: 🔴 ${trend7dFormatted}%`;
+    }
+    
+    if (trend7d !== null && trend30d !== null) {
+      trendText += ' | ';
+    }
+    
+    if (trend30d !== null) {
+      // Display the actual period days if it's not 30
+      const periodLabel = periodDays && periodDays < 30 ? `${periodDays}d` : '30d';
+      
+      const trend30dFormatted = trend30d.toFixed(2);
+      trendText += trend30d > 0 ? 
+        `${periodLabel}: 🟢 +${trend30dFormatted}%` : 
+        `${periodLabel}: 🔴 ${trend30dFormatted}%`;
+    }
+    
+    return trendText || 'N/A';
+  };
+
+  // Get holder count - first try to get from holderData, then from tokenInfo.holderCount
+  const holderCount = holderData?.current || tokenInfo.holderCount || 0;
+
   let message = `💰 *${tokenInfo.name || "Unknown Token"} (${
     tokenInfo.symbol || "N/A"
   })*\n`;
@@ -231,6 +281,18 @@ function formatTokenInfo(tokenInfo, topHolders, transferVolume, bot) {
   message += `• Market Cap: $${formatNumber(tokenInfo.marketCap)}\n`;
   message += `• 24h Volume: $${formatNumber(tokenInfo.usdValueVolume24h)}\n`;
   message += `• Circulating Supply: ${formatNumber(tokenInfo.currentSupply)}\n`;
+  
+  // Add holders data - ensure we display it as a whole number
+  const displayHolderCount = parseInt(holderCount || 0);
+  message += `• Holders: ${formatNumber(displayHolderCount)}\n`;
+  
+  // Add holder trend if available
+  const holdersTrendText = formatHoldersTrend();
+  if (holdersTrendText !== 'N/A') {
+    message += `• Holder Trend: ${holdersTrendText}\n`;
+  }
+  
+  message += `• Verified: ${tokenInfo.verified ? "✅ Yes" : "❌ No"}\n`;
 
   message += `\n📡 *Whale Watch:*\nUse [/whale ${tokenInfo.mintAddress}] to see recent whale activity for this token.\n`;
 
