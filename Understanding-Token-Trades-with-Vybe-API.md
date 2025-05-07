@@ -29,94 +29,100 @@ vybeApi.auth(process.env.VYBE_API_KEY);
 ```
 
 - **What's Happening?** The code uses a special key (`VYBE_API_KEY`) to prove it's allowed to access the Vybe API. Without this key, the API won't share any data—just like needing a library card to borrow books.
-- **Simple Explaination:** Think of this as showing your ID to the librarian so they trust you to look at their records.
+- **Simple Explanation:** Think of this as showing your ID to the librarian so they trust you to look at their records.
 
 ### 2. **Defining the Request: What Trades to Fetch**
 The code has a function called `getTokenTrades` that asks the Vybe API for trade data:
 
 ```javascript
 async function getTokenTrades({
+  mintAddress,
   baseMintAddress,
   quoteMintAddress,
-  programIds = null,
-  timeRangeHours = 24,
-  limitPerProgram = 10,
+  timeRangeHours,
+  limit,
 })
 ```
 
 - **What's Happening?** The function is like filling out a form to tell the librarian exactly what you're looking for. It specifies:
-  - **Which tokens to look for:** `baseMintAddress` (e.g., BONK) and `quoteMintAddress` (e.g., SOL) define the trading pair, like asking for trades of apples for oranges.
-  - **Where to look:** `programIds` tells the API which DEXs (like Raydium or Orca) to check. If set to `null`, it looks everywhere Vybe supports.
+  - **Which tokens to look for:** You can use either:
+    - `mintAddress` to search for any trades involving a specific token (regardless of whether it's base or quote)
+    - `baseMintAddress` and `quoteMintAddress` together to define a specific trading pair
   - **How far back to look:** `timeRangeHours` (e.g., 24 hours) sets the time period, like saying, "Show me trades from the last day."
-  - **How many trades to show:** `limitPerProgram` (e.g., 10) limits the number of trades to avoid getting too much data at once.
-- **Simple Explaination:** Imagine telling the librarian, "I want to know about apple-orange trades from the past day, and I only want to see the 10 most recent ones. Check all the markets you know about."
+  - **How many trades to show:** `limit` (e.g., 10) limits the number of trades to avoid getting too much data at once.
+- **Simple Explanation:** Imagine telling the librarian, "I want to know about any trades involving BONK (or specifically BONK for SOL trades) from the past day. I only want to see the 10 most recent ones. Check all the markets you know about."
 
 ### 3. **Sending the Request to Vybe API**
-The code sends the request to the Vybe API:
+The code prepares the API parameters and sends the request:
 
 ```javascript
-const response = await vybeApi.get_trade_data_program({
-  programId: null,
-  baseMintAddress,
-  quoteMintAddress,
+// Calculate time range
+const timeEnd = Math.floor(Date.now() / 1000);
+const timeStart = timeEnd - timeRangeHours * 3600;
+
+// Prepare API parameters - EXACTLY matching the direct API call structure
+const apiParams = {
   timeStart,
   timeEnd,
-  limit: limitPerProgram,
-  sortByDesc: "blocktime",
-});
+  limit,
+};
+
+// Add token parameters based on what was provided
+if (hasMintAddress) {
+  apiParams.mintAddress = mintAddress;
+} else {
+  apiParams.baseMintAddress = baseMintAddress;
+  apiParams.quoteMintAddress = quoteMintAddress;
+}
+
+// Make API call
+const response = await vybeApi.get_trade_data_program(apiParams);
 ```
 
-- **What's Happening?** The code calls the `get_trade_data_program` endpoint (https://api.vybenetwork.xyz/token/trades) to fetch the trades. It sets `programId` to `null` to look across all DEXs, specifies the token pair (`baseMintAddress` and `quoteMintAddress`), sets the time range (`timeStart` and `timeEnd`), and sorts the results by the most recent trades (`sortByDesc: "blocktime"`).
-- **Simple Explaination:** This is like the librarian going through all their records to find apple-orange trades from the past day and bringing back the 10 most recent ones, sorted from newest to oldest.
+- **What's Happening?** The code calls the `get_trade_data_program` endpoint to fetch the trades. It sets the time range and limits the results.
+- **Simple Explanation:** This is like the librarian going through all their records to find trades involving a specific token (or token pair) from the past day and bringing back the most recent ones.
 
 ### 4. **Processing the Response**
 The code takes the data from the API and formats it to make it easier to read:
 
 ```javascript
-const formattedTrades = allTrades.map((trade) => ({
-  authorityAddress: trade.authorityAddress,
-  blockTime: trade.blockTime,
-  timestamp: new Date(trade.blockTime * 1000).toISOString(),
-  pair: `${trade.baseMintAddress}/${trade.quoteMintAddress}`,
-  direction: trade.quoteMintAddress === quoteMintAddress ? "Buy" : "Sell",
-  price: trade.price,
-  baseSize: trade.baseSize,
-  quoteSize: trade.quoteSize,
-  signature: trade.signature,
-  feePayer: trade.feePayer,
-  programId: trade.programId,
-}));
+const formattedTrades = trades.map((trade) => {
+  const tradeDetails = {
+    authorityAddress: trade.authorityAddress,
+    blockTime: trade.blockTime,
+    timestamp: new Date(trade.blockTime * 1000).toISOString(),
+    pair: `${trade.baseMintAddress}/${trade.quoteMintAddress}`,
+    price: trade.price,
+    baseSize: trade.baseSize,
+    quoteSize: trade.quoteSize,
+    signature: trade.signature,
+    feePayer: trade.feePayer,
+    programId: trade.programId,
+  };
+
+  // Determine direction
+  if (hasMintAddress) {
+    tradeDetails.direction =
+      trade.baseMintAddress === mintAddress ? "Sell" : "Buy";
+    tradeDetails.directionContext = `(for token ${mintAddress})`;
+  } else {
+    tradeDetails.direction =
+      trade.quoteMintAddress === quoteMintAddress ? "Buy" : "Sell";
+    tradeDetails.directionContext = `(for token ${baseMintAddress})`;
+  }
+
+  return tradeDetails;
+});
 ```
 
 - **What's Happening?** The API returns a list of trades, and the code organizes each trade into a neat format:
   - **Who made the trade:** `authorityAddress` (the trader's wallet address).
   - **When it happened:** `timestamp` (a readable date and time).
   - **What was traded:** `pair` (e.g., BONK/SOL).
-  - **Buy or Sell:** `direction` (whether the trader bought or sold the quote token, e.g., SOL).
+  - **Buy or Sell:** `direction` (whether the trader bought or sold the token) with `directionContext` (explaining what perspective the direction is from).
   - **Price and Amounts:** `price` (how much SOL per BONK), `baseSize` (amount of BONK), `quoteSize` (amount of SOL).
   - **Where it happened:** `programId` (the DEX, like Raydium or Orca).
-- **Simple Explaination:** The librarian hands you a list of trades, and you write down the important details in a notebook: who traded, when, what they swapped, and how much they paid.
-
-### 5. **Showing the Results**
-The code prints the formatted trades:
-
-```javascript
-trades.forEach((trade, index) => {
-  console.log(`${index + 1}.`);
-  console.log(`  Program: ${trade.programId}`);
-  console.log(`  Pair: ${trade.pair}`);
-  console.log(`  Direction: ${trade.direction} (for quote token)`);
-  console.log(`  Price: ${trade.price} (quote per base)`);
-  console.log(`  Base Size: ${trade.baseSize}`);
-  console.log(`  Quote Size: ${trade.quoteSize}`);
-  console.log(`  Timestamp: ${trade.timestamp}`);
-  console.log(`  Signature: ${trade.signature}`);
-  console.log("---");
-});
-```
-
-- **What's Happening?** The code displays the trades in a readable format, showing the DEX, token pair, whether it was a buy or sell, the price, amounts, and when it happened.
-- **Simple Explaination:** You read your notebook aloud: "Trade 1: On Raydium, someone swapped 1 million BONK for 22.5 SOL at a price of 0.0000225 SOL per BONK on May 7, 2025."
+- **Simple Explanation:** The librarian hands you a list of trades, and you write down the important details in a notebook: who traded, when, what they swapped, how much they paid, and whether it was a buy or sell from the perspective of your token of interest.
 
 ---
 
@@ -126,7 +132,7 @@ The Vybe API's `get_trade_data_program` endpoint (https://api.vybenetwork.xyz/to
 
 ### Parameters the API Accepts
 
-| **Parameter**        | **What It Means (Simple Explaination)**                                                                 | **Example Value**                          |
+| **Parameter**        | **What It Means (Simple Explanation)**                                                                 | **Example Value**                          |
 |----------------------|-----------------------------------------------------------------------------------------------------|--------------------------------------------|
 | `programId`          | Which market to check for trades (e.g., Raydium, Orca). Set to `null` to check all markets.         | `null` (checks all markets) or `675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8` (Raydium) |
 | `baseMintAddress`    | The first token in the pair you're interested in (e.g., BONK).                                      | `DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263` (BONK) |
@@ -149,85 +155,132 @@ The Vybe API's `get_trade_data_program` endpoint (https://api.vybenetwork.xyz/to
   - Use `mintAddress` to find all trades involving a single token (e.g., BONK with anything).
   - Use `marketId` to find trades in a specific market (ignores the token pair).
 - **Default Behavior:** If you don't set `programId`, the API looks at **all supported markets** (Raydium, Orca, Jupiter, etc.) for the last 14 days. If you don't set `timeStart` and `timeEnd`, it uses the last 14 days by default.
-- **Sorting:** Use `sortByDesc: "blocktime"` to get the newest trades first, which is what the code does.
-- **Simple Explaination:** Think of these parameters as telling the librarian, "Find me trades for apples and oranges (or just apples), check all markets, from yesterday to today, and show me the 10 newest ones."
+- **Sorting:** Use `sortByDesc: "blocktime"` to get the newest trades first.
+- **Simple Explanation:** Think of these parameters as telling the librarian, "Find me trades for apples and oranges (or just apples), check all markets, from yesterday to today, and show me the 10 newest ones."
 
 ---
 
-## Example: Fetching BONK/SOL Trades
+## Examples: Fetching Token Trades
 
-Let's see how the code uses these parameters to fetch trades for BONK/SOL:
-
-### Code Example
-The code calls `getTokenTrades` with these settings:
+### Example 1: Fetching Trades for a Specific Token Pair
 
 ```javascript
 const trades = await getTokenTrades({
   baseMintAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
-  quoteMintAddress: "11111111111111111111111111111111", // SOL
-  programIds: null, // Fetch across all programs
+  quoteMintAddress: "So11111111111111111111111111111111111111112", // SOL
   timeRangeHours: 24,
-  limitPerProgram: 10,
+  limit: 10,
 });
 ```
 
 - **What's Happening?**
-  - **Token Pair:** BONK (`DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`) and SOL (`11111111111111111111111111111111`).
-  - **Where to Look:** `programIds: null` means check all markets (Raydium, Orca, Jupiter, etc.).
-  - **Time Range:** `timeRangeHours: 24` means look at the last 24 hours. The code calculates `timeStart` and `timeEnd` automatically (e.g., from May 6, 2025, to May 7, 2025).
-  - **Limit:** `limitPerProgram: 10` means get up to 10 trades.
+  - **Token Pair:** BONK (`DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`) and SOL (`So11111111111111111111111111111111111111112`).
+  - **Time Range:** `timeRangeHours: 24` means look at the last 24 hours.
+  - **Limit:** `limit: 10` means get up to 10 trades.
 
-### API Request Sent to Vybe
-The code sends this request to the Vybe API:
+### Example 2: Fetching Trades for a Single Token (Regardless of Pair)
 
 ```javascript
-vybeApi.get_trade_data_program({
-  programId: null,
-  baseMintAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-  quoteMintAddress: "11111111111111111111111111111111",
-  timeStart: 1746548220, // May 6, 2025, 5:17 PM UTC
-  timeEnd: 1746634620, // May 7, 2025, 5:17 PM UTC
+const trades = await getTokenTrades({
+  mintAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
+  timeRangeHours: 24,
   limit: 10,
-  sortByDesc: "blocktime",
 });
+```
+
+- **What's Happening?**
+  - **Token:** BONK (`DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`).
+  - **All Pairs:** This will find trades of BONK with ANY other token.
+  - **Time Range:** `timeRangeHours: 24` means look at the last 24 hours.
+  - **Limit:** `limit: 10` means get up to 10 trades.
+
+### Example 3: Real-World Usage in Test Code
+
+Here's how we use the function in our test code (whale.js):
+
+```javascript
+async function testTrades() {
+  try {
+    const mintAddress = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"; // BONK
+    const trades = await getTokenTrades({
+      mintAddress,
+      timeRangeHours: 24,
+      limit: 100,
+    });
+
+    if (trades.length === 0) {
+      console.log(
+        `No transactions found for token ${mintAddress}.`
+      );
+      return;
+    }
+
+    console.log(`Recent transactions for token ${mintAddress}:`);
+    trades.forEach((trade, index) => {
+      console.log(`${index + 1}.`);
+      console.log(`  Program: ${trade.programId}`);
+      console.log(`  Pair: ${trade.pair}`);
+      console.log(`  Direction: ${trade.direction} ${trade.directionContext}`);
+      console.log(`  Price: ${trade.price} (quote per base)`);
+      console.log(`  Base Size: ${trade.baseSize}`);
+      console.log(`  Quote Size: ${trade.quoteSize}`);
+      console.log(`  Timestamp: ${trade.timestamp}`);
+      console.log(`  Signature: ${trade.signature.substring(0, 20)}...`);
+      console.log("---");
+    });
+
+    console.log("\nSummary:");
+    console.log(`  Total trades: ${trades.length}`);
+  } catch (error) {
+    console.error("Failed to fetch transactions:", error.message);
+  }
+}
 ```
 
 ### Example Output
 The API might return something like this (simplified):
 
 ```
-Recent BONK/SOL trades across all programs:
+Recent transactions for token DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263:
 1.
   Program: 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 (Raydium V4)
-  Pair: DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/11111111111111111111111111111111
-  Direction: Sell (for quote token)
+  Pair: DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/So11111111111111111111111111111111111111112
+  Direction: Sell (for token DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263)
   Price: 0.00002250 (quote per base)
   Base Size: 1000000.0
   Quote Size: 22.50
   Timestamp: 2025-05-07T17:15:00.000Z
-  Signature: kQQksZ1K4DWPRyGkaXqT5L4HkBmPCyyBn9pzao3GSnDxFTgiu4fMRGpi5TD7dq8FsckkeySXazT117qryP3RpwE
+  Signature: kQQksZ1K4DWPRyGkaXq...
 ---
 2.
-  Program: 9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP (Orca V2)
-  Pair: DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/11111111111111111111111111111111
-  Direction: Sell (for quote token)
-  Price: 0.00002248 (quote per base)
-  Base Size: 500000.0
-  Quote Size: 11.24
-  Timestamp: 2025-05-07T17:14:00.000Z
-  Signature: 3RupgsV1i2rbWXJFT3yGZsZivFqZbxUEYimghWVsMEJggxKC2LmvCugoDE1bSTMyktgXDBE2peiMfn575JvSFUzs
+  Program: whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc (Orca Whirlpool)
+  Pair: DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+  Direction: Buy (for token DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263)
+  Price: 0.00002249 (quote per base)
+  Base Size: 2500000.0
+  Quote Size: 56.22
+  Timestamp: 2025-05-07T17:10:00.000Z
+  Signature: 3RupgsV1i2rbWXJFT3y...
 ---
+
+Summary:
+  Total trades: 2
 ```
 
-- **Simple Explaination:** This output says:
+- **Simple Explanation:** This output says:
   - On Raydium, someone sold 1 million BONK for 22.5 SOL at a price of 0.0000225 SOL per BONK on May 7, 2025.
-  - On Orca, someone sold 500,000 BONK for 11.24 SOL at a price of 0.00002248 SOL per BONK on May 7, 2025.
+  - On Orca Whirlpool, someone bought 2.5 million BONK using 56.22 USDC at a price of 0.00002249 USDC per BONK on May 7, 2025.
 
 ---
 
 ## Why This Matters
 
-This code helps you see who's trading tokens like BONK and SOL, how much they're trading, and at what price. It's like having a window into a busy marketplace where you can watch people swap digital coins. By checking all markets (not just Raydium), you get a complete picture of the trading activity, which can help you understand market trends or make better trading decisions.
+This code helps you see who's trading tokens like BONK, how much they're trading, and at what price. The information can help you:
+
+- Identify trading activity that might move the market
+- Understand trading patterns across different exchanges
+- Track volume and liquidity for specific tokens
+- Monitor market sentiment through trading behavior
 
 ---
 

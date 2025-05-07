@@ -38,7 +38,6 @@ const SUPPORTED_PROGRAMS = {
   Solfi: "SoLFiHG9TfgtdUXUjWAxi3LtvYuFyDLVhBWxdMZxyCe",
   "Stabble Stable Swap": "swapNyd8XiQwJ6ianp9snpu4brUqFxadzvHebnAXjJZ",
   "Stabble Weighted Swap": "swapFpHZwjELNnjvThjajtiVmkz3yPQEHjLtka2fwHW",
-
   // Supported Aggregators:
   "Jupiter V6": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
   OKX: "6m2CDdhRgxpH4WjvdzxAYbGxwdGUz5MziiL5jek2kBma",
@@ -60,148 +59,139 @@ function logApiMethods() {
 logApiMethods();
 
 /**
- * Fetches token trade data from the Vybe Network API for a specific trading pair across multiple programs.
- * @param {string} baseMintAddress - The mint address of the base token (e.g., BONK).
- * @param {string} quoteMintAddress - The mint address of the quote token (e.g., SOL).
- * @param {string[]|null} [programIds=null] - Array of program IDs to fetch trades from (e.g., Raydium V4, Orca). If null, fetches from all supported programs.
- * @param {number} [timeRangeHours=24] - The time range in hours to fetch trades for (default: 24 hours).
- * @param {number} [limitPerProgram=10] - The maximum number of trades to fetch per program (default: 10).
- * @returns {Promise<Array>} - A promise that resolves to an array of trade objects from all programs.
- * @throws {Error} - If the API call fails or parameters are invalid.
+ * Fetches token trade data from the Vybe Network API.
+ * @param {Object} options - Options for fetching trades
+ * @param {string} [options.mintAddress] - The mint address of the token to fetch trades for (regardless of base/quote)
+ * @param {string} [options.baseMintAddress] - The mint address of the base token (must be used with quoteMintAddress)
+ * @param {string} [options.quoteMintAddress] - The mint address of the quote token (must be used with baseMintAddress)
+ * @param {number} [options.timeRangeHours=24] - Time range in hours to look back
+ * @param {number} [options.limit=10] - Maximum number of trades to fetch
+ * @returns {Promise<Array>} - A promise that resolves to an array of formatted trade objects
  */
-export async function getTokenTrades({
+async function getTokenTrades({
+  mintAddress,
   baseMintAddress,
   quoteMintAddress,
-  programIds = null, // If null, fetch from all supported programs
-  timeRangeHours = 24,
-  limitPerProgram = 10,
+  timeRangeHours,
+  limit,
 }) {
   try {
-    // Input validation
-    if (!baseMintAddress || typeof baseMintAddress !== "string") {
-      throw new Error("baseMintAddress is required and must be a string.");
-    }
-    if (!quoteMintAddress || typeof quoteMintAddress !== "string") {
-      throw new Error("quoteMintAddress is required and must be a string.");
-    }
-    if (timeRangeHours <= 0 || typeof timeRangeHours !== "number") {
-      throw new Error("timeRangeHours must be a positive number.");
-    }
-    if (
-      limitPerProgram <= 0 ||
-      typeof limitPerProgram !== "number" ||
-      limitPerProgram > 1000
-    ) {
+    // Validate input parameters
+    const hasMintAddress = mintAddress && typeof mintAddress === "string";
+    const hasBaseAndQuote =
+      baseMintAddress &&
+      typeof baseMintAddress === "string" &&
+      quoteMintAddress &&
+      typeof quoteMintAddress === "string";
+
+    if (hasMintAddress && hasBaseAndQuote) {
       throw new Error(
-        "limitPerProgram must be a positive number and not exceed 1000."
+        "Cannot provide both mintAddress and baseMintAddress/quoteMintAddress. Use one or the other."
       );
     }
 
-    // Calculate time range (e.g., last 24 hours)
-    const timeEnd = Math.floor(Date.now() / 1000); // Current Unix timestamp
-    const timeStart = timeEnd - timeRangeHours * 3600; // timeRangeHours ago
+    if (!hasMintAddress && !hasBaseAndQuote) {
+      throw new Error(
+        "Either mintAddress or both baseMintAddress and quoteMintAddress must be provided."
+      );
+    }
+
+    // Calculate time range
+    const timeEnd = Math.floor(Date.now() / 1000);
+    const timeStart = timeEnd - timeRangeHours * 3600;
 
     logger.info(
-      `Fetching trades for pair ${baseMintAddress}/${quoteMintAddress} from ${new Date(
-        timeStart * 1000
-      ).toISOString()} to ${new Date(timeEnd * 1000).toISOString()}`
+      `Fetching trades for token ${
+        hasMintAddress ? mintAddress : `${baseMintAddress}/${quoteMintAddress}`
+      } ` +
+        `from ${new Date(timeStart * 1000).toISOString()} to ${new Date(
+          timeEnd * 1000
+        ).toISOString()}`
     );
 
-    // Determine which programs to query
-    const programsToQuery = programIds || Object.values(SUPPORTED_PROGRAMS);
-    let allTrades = [];
+    // Prepare API parameters - EXACTLY matching the direct API call structure
+    const apiParams = {
+      timeStart,
+      timeEnd,
+      limit,
+    };
 
-    // If programIds is null, fetch trades with programId set to null to aggregate across all programs
-    if (programIds === null) {
-      logger.info(
-        "Fetching trades across all supported programs (programId=null)."
-      );
-      const response = await vybeApi.get_trade_data_program({
-        programId: null, // Aggregate across all programs
-        baseMintAddress,
-        quoteMintAddress,
-        timeStart,
-        timeEnd,
-        limit: limitPerProgram,
-        sortByDesc: "blocktime",
-      });
-
-      if (!response || !response.data || !Array.isArray(response.data)) {
-        logger.warn(
-          "No trade data returned from Vybe API when fetching across all programs."
-        );
-        return [];
-      }
-
-      allTrades = response.data;
-      logger.info(`Fetched ${allTrades.length} trades across all programs.`);
+    // Add token parameters based on what was provided
+    if (hasMintAddress) {
+      apiParams.mintAddress = mintAddress;
     } else {
-      // Fetch trades for each specified program
-      for (const programId of programsToQuery) {
-        logger.info(`Fetching trades for program ${programId}`);
-        try {
-          const response = await vybeApi.get_trade_data_program({
-            programId,
-            baseMintAddress,
-            quoteMintAddress,
-            timeStart,
-            timeEnd,
-            limit: limitPerProgram,
-            sortByDesc: "blocktime",
-          });
-
-          if (!response || !response.data || !Array.isArray(response.data)) {
-            logger.warn(`No trade data returned for program ${programId}.`);
-            continue;
-          }
-
-          const trades = response.data;
-          logger.info(
-            `Fetched ${trades.length} trades for program ${programId}`
-          );
-          allTrades = allTrades.concat(trades);
-        } catch (error) {
-          logger.error(
-            `Error fetching trades for program ${programId}: ${error.message}`,
-            {
-              programId,
-              baseMintAddress,
-              quoteMintAddress,
-              stack: error.stack,
-            }
-          );
-        }
-      }
+      apiParams.baseMintAddress = baseMintAddress;
+      apiParams.quoteMintAddress = quoteMintAddress;
     }
 
-    // Sort all trades by blockTime (most recent first)
-    allTrades.sort((a, b) => b.blockTime - a.blockTime);
+    // Make API call - using exact same structure as direct API call
+    const response = await vybeApi.get_trade_data_program(apiParams);
+
+    // Handle response
+    if (
+      !response ||
+      !response.data ||
+      !response.data.data ||
+      !Array.isArray(response.data.data)
+    ) {
+      logger.warn("No trade data returned from Vybe API");
+      return [];
+    }
+
+    // Extract trades from nested data structure
+    let trades = response.data.data;
+    logger.info(`Fetched ${trades.length} trades from Vybe API`);
+
+    // If no trades found, return empty array
+    if (trades.length === 0) {
+      return [];
+    }
 
     // Format trades for better readability
-    const formattedTrades = allTrades.map((trade) => ({
-      authorityAddress: trade.authorityAddress,
-      blockTime: trade.blockTime,
-      timestamp: new Date(trade.blockTime * 1000).toISOString(),
-      pair: `${trade.baseMintAddress}/${trade.quoteMintAddress}`,
-      direction: trade.quoteMintAddress === quoteMintAddress ? "Buy" : "Sell",
-      price: trade.price,
-      baseSize: trade.baseSize,
-      quoteSize: trade.quoteSize,
-      signature: trade.signature,
-      feePayer: trade.feePayer,
-      programId: trade.programId,
-    }));
+    const formattedTrades = trades.map((trade) => {
+      const tradeDetails = {
+        authorityAddress: trade.authorityAddress,
+        blockTime: trade.blockTime,
+        timestamp: new Date(trade.blockTime * 1000).toISOString(),
+        pair: `${trade.baseMintAddress}/${trade.quoteMintAddress}`,
+        price: trade.price,
+        baseSize: trade.baseSize,
+        quoteSize: trade.quoteSize,
+        signature: trade.signature,
+        feePayer: trade.feePayer,
+        programId: trade.programId,
+      };
 
-    logger.debug("Formatted trades:", formattedTrades);
+      // Determine direction
+      if (hasMintAddress) {
+        tradeDetails.direction =
+          trade.baseMintAddress === mintAddress ? "Sell" : "Buy";
+        tradeDetails.directionContext = `(for token ${mintAddress})`;
+      } else {
+        tradeDetails.direction =
+          trade.quoteMintAddress === quoteMintAddress ? "Buy" : "Sell";
+        tradeDetails.directionContext = `(for token ${baseMintAddress})`;
+      }
+
+      return tradeDetails;
+    });
+
     return formattedTrades;
   } catch (error) {
     logger.error(`Error fetching token trades: ${error.message}`, {
+      mintAddress,
       baseMintAddress,
       quoteMintAddress,
       timeRangeHours,
-      limitPerProgram,
+      limit,
       stack: error.stack,
     });
     throw error;
   }
 }
+
+// Export functions for use in other modules
+module.exports = {
+  getTokenTrades,
+  SUPPORTED_PROGRAMS,
+};
