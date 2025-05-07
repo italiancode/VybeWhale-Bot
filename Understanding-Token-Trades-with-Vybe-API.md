@@ -1,7 +1,3 @@
-Below is a detailed **context markdown** that explains how the provided code works to fetch token trades using the Vybe Network API, how the API accepts its parameters, and how this process can be understood in simple terms Simple Explaination. The markdown is structured to be clear, concise, and accessible while maintaining technical accuracy.
-
----
-
 # Understanding Token Trades with Vybe API: A Simple Guide
 
 ## Overview
