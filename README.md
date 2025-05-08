@@ -4,8 +4,11 @@ A powerful Telegram bot that delivers real-time on-chain analytics for Solana to
 
 ## Features
 
-- **Token Analysis**: Get comprehensive token information including price, supply, and market cap
+- **Token Analysis**: Get comprehensive token information including price, supply, market cap, and whale distribution metrics
 - **Whale Transaction Tracking**: Monitor large transactions (whale movements) for any Solana token
+- **Top Holder Analysis**: Identify the largest token holders and assess whale concentration risk
+- **Whale Risk Assessment**: Get actionable insights about potential price impact from whale activity
+- **One-Click Wallet Tracking**: Instantly follow any whale wallet with a single click (⚡)
 - **Smart Fallback System**: When API timeouts occur, provides direct links to Vybe Network for detailed analysis
 - **Memory System**: Remembers the last token you analyzed for quick lookups
 
@@ -43,19 +46,52 @@ Start the bot by sending the `/start` command:
 
 ### Token Analysis
 
-Send `/token [token_address]` to get detailed information about any Solana token.
+Send `/token [token_address]` to get detailed information about any Solana token, including:
+
+- Price, market cap, and supply metrics
+- Holder count and trend analytics
+- Whale distribution with concentration risk assessment
+- Top holder information and exchange holdings
+- One-click tracking of the largest holder
+- Direct link to detailed token analytics
 
 Example response:
 
 ![Token Command Screenshot](./public/token.png)
 
-### Whale Tracking
+### Whale Analysis
 
-Send `/whale [token_address]` to track large transactions for any token.
+Send `/whale [token_address]` to get comprehensive whale information for any token. This includes:
+
+- Top 5 token holders with percentage of supply and USD value
+- Recent large transactions with detailed information
+- Whale concentration risk assessment
+- Potential market impact insights
+- One-click tracking buttons (⚡) to follow any whale wallet instantly
 
 Example response:
 
 ![Whale Command Screenshot](./public/whale.png)
+
+## Understanding Whale Analysis
+
+The bot's whale analysis combines two key data points:
+
+1. **Top Token Holders**: Identifies wallets holding the largest percentages of a token's supply
+2. **Recent Whale Transactions**: Shows high-value transactions above the specified threshold
+
+Based on this data, the bot calculates a **Whale Concentration Risk** level:
+- **VERY HIGH**: >70% supply held by top 5 holders - extreme caution advised
+- **HIGH**: 50-70% held by top 5 - significant manipulation potential
+- **MODERATE**: 30-50% held by top 5 - some manipulation possible
+- **LOW**: 15-30% held by top 5 - well-distributed but still watch large holders
+- **VERY LOW**: <15% held by top 5 - minimal manipulation risk
+
+### One-Click Whale Tracking
+
+See an interesting whale wallet? Just click the ⚡ button next to any wallet address to instantly start tracking it. You'll receive alerts whenever the wallet makes significant moves, potentially giving you an edge in the market.
+
+For more detailed information, see the [Understanding Whale Analysis](Understanding-Whale-Analysis.md) document.
 
 ## API Behavior and Limitations
 
@@ -66,6 +102,12 @@ During development and testing, we observed several important characteristics of
 - **Token Coverage**: The whale transaction API primarily supports established tokens with significant trading volume. Newer, less popular, or custom tokens may not be tracked.
 - **API Response Structure**: The API may return transactions in different formats depending on the token. Our implementation carefully handles these variations.
 - **No-Data Handling**: For tokens without data, the bot provides helpful information explaining possible reasons and directs users to Vybe Network for additional analysis.
+
+### Top Token Holders API
+
+- **Data Availability**: Top holder information is available for most established tokens but may be limited for newer tokens.
+- **Identification**: The API attempts to identify known wallets (exchanges, projects, etc.) but many will show as "Unknown".
+- **Data Freshness**: Holder data is generally updated on a regular basis but may not reflect the absolute latest movements.
 
 ## Technical Implementation
 
@@ -79,8 +121,8 @@ During development and testing, we observed several important characteristics of
 - `/start` - Initialize the bot and get welcome message
 - `/help` - Display available commands and usage information
 - `/token [ADDRESS]` - Get detailed token information and metrics
-- `/whale [ADDRESS]` - View recent whale transactions for a token
-- `/trackwallet [ADDRESS]` - Start tracking a wallet address
+- `/whale [ADDRESS]` - View comprehensive whale analysis including top holders and transactions
+- `/trackwallet [ADDRESS]` - Start tracking a wallet address (or use ⚡ buttons for one-click tracking)
 - `/untrackwallet [ADDRESS]` - Stop tracking a wallet address
 - `/listwallets` - View all wallets you're currently tracking
 - `/setthreshold [AMOUNT]` - Set minimum USD value for whale alerts
@@ -89,7 +131,7 @@ During development and testing, we observed several important characteristics of
 
 ## Project Summary
 
-VybeWhale bot delivers real-time Solana token analytics and whale alerts directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data and a standout whale transaction tracker that detects and reports large token movements with configurable thresholds.
+VybeWhale bot delivers real-time Solana token analytics and whale alerts directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data and a standout whale analysis system that combines top holder data with transaction tracking to provide advanced risk assessment.
 
 Technical innovations include smart API optimization that dynamically adjusts request parameters based on token volume, multi-level fallback systems that ensure users always get value even when facing API limitations, and seamless integration with Vybe Network's web interface for deeper analysis.
 

@@ -75,6 +75,25 @@ async function handleTrackWalletCommand(bot, msg) {
       return;
     }
 
+    // Check if a wallet address was provided directly in the command
+    const commandArgs = msg.text.split(" ");
+    if (commandArgs.length > 1) {
+      const walletAddress = commandArgs[1].trim();
+      
+      // Validate Solana wallet address
+      if (walletAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
+        // Process the wallet address directly
+        await processWalletTracking(bot, chatId, userId, walletAddress);
+        return;
+      } else {
+        await bot.sendMessage(
+          chatId,
+          "❌ Invalid Solana wallet address format. Please enter a valid Solana wallet address."
+        );
+        return;
+      }
+    }
+
     // Set initial state for wallet input
     stateManager.setState(userId, {
       command: "trackwallet",
@@ -138,6 +157,23 @@ async function handleWalletInput(bot, msg) {
       return;
     }
 
+    await processWalletTracking(bot, chatId, userId, walletAddress);
+    
+    // Clear user state
+    stateManager.clearState(userId);
+  } catch (error) {
+    logger.error("Error processing wallet input:", error);
+    await bot.sendMessage(
+      msg.chat.id,
+      "❌ Error tracking wallet. Please try again later."
+    );
+    stateManager.clearState(msg.from.id);
+  }
+}
+
+// Helper function to process wallet tracking (used by both command and input handlers)
+async function processWalletTracking(bot, chatId, userId, walletAddress) {
+  try {
     // Show typing indicator
     await bot.sendChatAction(chatId, "typing");
 
@@ -156,7 +192,6 @@ async function handleWalletInput(bot, msg) {
         chatId,
         "⚠️ You are already tracking this wallet."
       );
-      stateManager.clearState(userId);
       return;
     }
 
@@ -175,19 +210,12 @@ async function handleWalletInput(bot, msg) {
       chatId,
       `✅ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(
         -4
-      )} is now being tracked.\n\nUse /listwallets to see all tracked wallets.`,
+      )} is now being tracked!\n\nYou'll receive alerts when this wallet makes significant moves.\n\nUse /listwallets to see all tracked wallets.`,
       { parse_mode: "Markdown" }
     );
-
-    // Clear user state
-    stateManager.clearState(userId);
   } catch (error) {
-    logger.error("Error processing wallet input:", error);
-    await bot.sendMessage(
-      msg.chat.id,
-      "❌ Error tracking wallet. Please try again later."
-    );
-    stateManager.clearState(msg.from.id);
+    logger.error(`Error processing wallet tracking: ${error.message}`, { error });
+    throw error;
   }
 }
 
