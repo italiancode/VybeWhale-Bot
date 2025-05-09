@@ -10,10 +10,6 @@ async function handler(bot, msg) {
 👋 *Welcome to VybeWhale Bot!*
 
 Your go-to for Solana whale tracking and token insights:
-• 🐳 Whale Alerts: Real-time notifications for big moves
-• 📊 Token Metrics: Price, supply, and holder trends
-• ⚡ One-Click Tracking: Follow any wallet instantly
-• 🔍 Risk Assessment: Whale concentration and market impact
 
 *Get Started:*
 1. /token [address] - Analyze any token

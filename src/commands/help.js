@@ -11,7 +11,7 @@ const handler = async (bot, msg) => {
 
 *Analysis Commands:*
 /token [ADDRESS] - Token analysis: price, holders & whale distribution
-/whale [ADDRESS] - Whale watch: activity & risk assessment
+/whale [ADDRESS] - Whale watch: View whale insights, activity & risk assessment
 
 *Wallet Tracking:*
 /trackwallet [ADDRESS] - Track wallet (or use ⚡ Track buttons)

@@ -487,7 +487,7 @@ function formatWhaleData(
   // Footer with helpful resources and explanation about the ⚡ buttons
   message += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
   message += `ℹ️ *Click the ⚡ Track buttons to track any wallet.*\n\n`;
-  message += `📊 [View Full Activity on AlphaVybe](https://alpha.vybenetwork.com/tokens/${tokenAddress})\n`;
+  message += `📊 [View Full Activity on AlphaVybe 🔗](https://alpha.vybenetwork.com/tokens/${tokenAddress})\n`;
 
   return message;
 }
