@@ -5,9 +5,9 @@ A powerful Telegram bot that delivers real-time on-chain analytics for Solana to
 ## 🌟 Features
 
 - **Comprehensive Token Analysis**: Get detailed token information including price, supply, market cap, and whale distribution metrics
+- **Whale Transfer Monitoring**: Track large transfers for any Solana token 
 - **Top Holder Analysis**: Identify the largest token holders and assess whale concentration risk with intuitive risk scoring
-- **Whale Concentration Risk Assessment**: Evaluate potential market impact based on holder distribution data
-- **Whale Activity Monitoring**: Track all significant whale movements for any Solana token with real-time alerts
+- **Whale Concentration Risk Assessment**: See potential price volatility indicators based on holder distribution
 - **⚡ One-Click Wallet Tracking**: Instantly follow any whale wallet with a single click (⚡ Track) - no copying addresses!
 - **Exchange Holdings Detection**: Identify what percentage of tokens are held on major exchanges
 - **Smart Fallback System**: When API timeouts occur, provides direct links to Vybe Network for detailed analysis
@@ -55,7 +55,6 @@ Send `/token [token_address]` to get detailed information about any Solana token
 - Holder count and trend analytics
 - Whale distribution with concentration risk assessment
 - Top holder information and exchange holdings
-- One-click tracking of the largest holder
 - Direct link to detailed token analytics
 
 <div align="center">
@@ -67,8 +66,8 @@ Send `/token [token_address]` to get detailed information about any Solana token
 Send `/whale [token_address]` to get comprehensive whale information for any token:
 
 - Top 5 token holders with percentage of supply and USD value
-- Recent whale activity with detailed transfer information
-- Whale concentration risk assessment and volatility insights
+- Recent whale transfers with detailed information
+- Whale concentration risk assessment
 - One-click tracking buttons (⚡ Track) to follow any whale wallet instantly
 
 <div align="center">
@@ -100,9 +99,9 @@ Send `/whale [token_address]` to get comprehensive whale information for any tok
 
 ## 🏆 Project Summary
 
-VybeWhale bot delivers real-time Solana token analytics and whale alerts directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data and a standout whale analysis system that combines top holder data with complete activity monitoring to provide advanced risk assessment.
+VybeWhale bot delivers real-time Solana token analytics and whale insights directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data and a standout whale analysis system that combines top holder data with transfer monitoring to provide risk assessment.
 
-Technical innovations include smart API optimization that dynamically adjusts request parameters based on token volume, multi-level fallback systems that ensure users always get value even when facing API limitations, and seamless integration with Vybe Network's web interface for deeper analysis.
+Technical innovations include API optimization that dynamically adjusts request parameters based on token volume, multi-level fallback systems that ensure users always get value even when facing API limitations, and seamless integration with Vybe Network's web interface for deeper analysis.
 
 ## 💼 Commercial Viability
 
