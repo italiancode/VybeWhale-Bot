@@ -2,11 +2,8 @@
 
 A powerful Telegram bot that delivers real-time on-chain analytics for Solana tokens using Vybe APIs.
 
-<div align="center">
-  <img src="./public/logo.png" alt="VybeWhale Bot Logo" width="300"/>
-</div>
 
-## 🌟 Unique Features
+## 🌟 Features
 
 - **Comprehensive Token Analysis**: Get detailed token information including price, supply, market cap, and whale distribution metrics
 - **Whale Transfer Monitoring**: Monitor large transfers (whale movements) for any Solana token with real-time notifications
@@ -35,7 +32,7 @@ cd VybeWhale-Bot
 3. Create a `.env` file with your:
 
    - TELEGRAM_BOT_TOKEN (from @BotFather)
-   - VYBE_API_KEY (from @EricVybe)
+   - VYBE_API_KEY (from https://vybe.fyi/settings/api)
    - VYBE_API_BASE_URL
    - DEFAULT_WHALE_THRESHOLD (optional, default 5000)
 
@@ -80,31 +77,6 @@ Send `/whale [token_address]` to get comprehensive whale information for any tok
   <img src="./public/whale.png" alt="Whale Command Screenshot" width="500"/>
 </div>
 
-## 🔍 What Makes VybeWhale Bot Different?
-
-VybeWhale Bot goes beyond the basic functionality of other crypto tracking bots by offering:
-
-1. **Interactive Tracking Interface**: Unlike most bots that require copying and pasting addresses, our ⚡ Track buttons enable one-click wallet tracking directly from the analysis screens.
-
-2. **Comprehensive Risk Assessment**: Our proprietary algorithm analyzes whale concentration, exchange holdings, and transfer patterns to provide a holistic risk score for each token.
-
-3. **Mobile-Optimized UI**: Carefully designed command outputs that work well on mobile Telegram screens, with thoughtful formatting and layout.
-
-4. **Enhanced UX Flow**: Smart response handling with loading indicators, fallback options when APIs time out, and helpful error messages when data is limited.
-
-5. **Token Memory System**: The bot remembers the last token you analyzed, making follow-up queries faster and easier.
-
-## 🔄 API Behavior and Limitations
-
-During development and testing, we observed several important characteristics of the Vybe API:
-
-- **Token Coverage**: The API primarily supports established tokens with significant trading volume. Newer, less popular, or custom tokens may not be tracked.
-- **API Response Structure**: The API may return transfers in different formats depending on the token. Our implementation carefully handles these variations.
-- **No-Data Handling**: For tokens without data, the bot provides helpful information explaining possible reasons and directs users to Vybe Network for additional analysis.
-- **Data Availability**: Top holder information is available for most established tokens but may be limited for newer tokens.
-- **Identification**: The API attempts to identify known wallets (exchanges, projects, etc.) but many will show as "Unknown".
-- **Data Freshness**: Holder data is generally updated on a regular basis but may not reflect the absolute latest movements.
-
 ## 💻 Technical Implementation
 
 - Node.js backend using the `node-telegram-bot-api` library
@@ -135,34 +107,38 @@ Technical innovations include smart API optimization that dynamically adjusts re
 
 ## 💼 Commercial Viability
 
-VybeWhale Bot has significant commercial potential in the crypto market intelligence space:
+VybeWhale Bot has significant potential in the crypto market:
 
-### Monetization Potential
-- **Premium Subscription Model**: Offer advanced features like custom threshold settings, additional tracked wallets, and priority API access
-- **White Label Solutions**: Partner with crypto projects to offer branded versions of the bot for their communities
-- **Enterprise Integration**: License the technology to trading firms and crypto funds for private deployment
+### Monetization
+
+- **Premium Features**: Offer custom thresholds, additional tracked wallets, and priority API access.
+- **White Label Solutions**: Brand the bot for crypto projects' communities.
+- **Enterprise Use**: License to trading firms and crypto funds.
 
 ### Scalability
-- **API Integration Hub**: The bot can serve as a central hub for integrating multiple data sources beyond Vybe Network
-- **Community-Driven Features**: The bot's modular design allows for rapid iteration based on user feedback
+
+- **API Integration Hub**: Centralize multiple data sources.
+- **Community Features**: Modular design for rapid iteration.
 
 ### Market Advantage
-- **Real-Time Intelligence**: Delivers actionable insights that traders can use immediately
-- **User-Friendly Design**: Makes complex on-chain data accessible to non-technical users
-- **Network Effect**: Each tracked wallet creates more value for the entire user base
+
+- **Real-Time Insights**: Actionable data for traders.
+- **User-Friendly**: Accessible to non-technical users.
+- **Network Effect**: Each tracked wallet benefits the entire user base.
 
 ## 🔗 Deployment
 
-To deploy VybeWhale Bot to your Telegram channel:
+Deploy to Telegram:
 
-1. Create a new bot with [@BotFather](https://t.me/botfather) on Telegram
-2. Set up webhook or polling in the `index.js` file
-3. Deploy to a cloud service like Heroku or Render
-4. Set the environment variables in your cloud provider's dashboard
-5. Start the bot service and add it to your Telegram channels
+1. Create a bot with @BotFather.
+2. Host on a cloud service (e.g., Heroku, Render).
+3. Set environment variables.
+4. Add to Telegram channels/groups with admin permissions.
+
+[Deployed Bot Link](https://t.me/vybewhalebot)
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) for details.
 
 Built with ❤️ by Agbaka Daniel Ugonna Matthew (Big Dreams Web3)
