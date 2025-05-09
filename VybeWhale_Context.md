@@ -27,6 +27,8 @@ VybeWhale is a real-time Telegram bot built to empower crypto communities with i
 
 ## 📦 Bot Structure
 
+<!--  -->
+
 ```bash
 vybewhale-bot/
 ├── src/
