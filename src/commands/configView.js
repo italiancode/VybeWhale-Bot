@@ -14,56 +14,40 @@ async function formatConfigMessage(chatId) {
         const trackedWallets = await redis.sMembers(`user:${chatId}:wallets`);
 
         // Format message
-        let message = '⚙️ *VybeWhale Bot Configuration*\n\n';
+        let message = '⚙️ *Current Configuration*\n\n';
         
         // Alert Status
         message += '*Alert Settings:*\n';
         if (enabledAlerts.length === 0) {
-            message += '• Alerts: ❌ No alerts enabled\n';
+            message += '• No alerts enabled\n';
         } else {
-            message += `• Whale Alerts: ${enabledAlerts.includes('whale') ? '✅ Enabled' : '❌ Disabled'}\n`;
-            message += `• Wallet Alerts: ${enabledAlerts.includes('wallet') ? '✅ Enabled' : '❌ Disabled'}\n`;
+            message += `• Whale Alerts: ${enabledAlerts.includes('whale') ? '✅' : '❌'}\n`;
+            message += `• Wallet Alerts: ${enabledAlerts.includes('wallet') ? '✅' : '❌'}\n`;
         }
 
         // Threshold
         message += '\n*Whale Alert Threshold:*\n';
         message += threshold 
-            ? `• $${parseFloat(threshold).toLocaleString()} minimum transfer value\n`
+            ? `• $${parseFloat(threshold).toLocaleString()}\n`
             : '• Not set (default: $10,000)\n';
-        message += '• Large transfers above this value trigger whale alerts\n';
 
         // Tracked Wallets
         message += '\n*Tracked Wallets:*\n';
         if (trackedWallets.length === 0) {
-            message += '• No wallets currently tracked\n';
-            message += '• Use /trackwallet command or ⚡ Track buttons to add wallets\n';
+            message += '• No wallets tracked\n';
         } else {
-            message += `• Total tracked: ${trackedWallets.length}\n`;
-            const maxToShow = Math.min(5, trackedWallets.length);
-            for (let i = 0; i < maxToShow; i++) {
-                const wallet = trackedWallets[i];
-                message += `• \`${wallet.slice(0, 8)}...${wallet.slice(-4)}\`\n`;
-            }
-            if (trackedWallets.length > maxToShow) {
-                message += `• Plus ${trackedWallets.length - maxToShow} more wallets\n`;
-            }
-            message += '• Use /listwallets to see all tracked wallets\n';
+            trackedWallets.forEach((wallet, index) => {
+                message += `• ${wallet.slice(0, 8)}...${wallet.slice(-4)}\n`;
+            });
         }
 
         // Available Commands
-        message += '\n*Configuration Commands:*\n';
-        message += '• /setthreshold <amount> - Set minimum USD for whale alerts\n';
+        message += '\n*Available Configuration Commands:*\n';
+        message += '• /setthreshold <amount> - Set whale alert threshold\n';
         message += '• /enablealerts <type> - Enable alerts (whale/wallet/all)\n';
         message += '• /disablealerts <type> - Disable alerts (whale/wallet/all)\n';
-        message += '• /trackwallet <address> - Start tracking a wallet\n';
-        message += '• /untrackwallet <address> - Stop tracking a wallet\n';
-        message += '• /listwallets - View all tracked wallets\n';
-        message += '• /config - View this configuration summary\n';
-
-        // Usage Tips
-        message += '\n*Pro Tips:*\n';
-        message += '• Use the ⚡ Track buttons when viewing whale data for one-click tracking\n';
-        message += '• Set a reasonable threshold based on the tokens you monitor\n';
+        message += '• /trackwallet - Track a new wallet\n';
+        message += '• /untrackwallet - Stop tracking a wallet\n';
 
         return message;
     } catch (error) {
@@ -81,7 +65,6 @@ async function handleConfigCommand(bot, msg) {
             parse_mode: 'Markdown',
             disable_web_page_preview: true
         });
-        logger.info(`Config command executed for chat ${chatId}`);
     } catch (error) {
         logger.error('Error in config command:', error);
         await bot.sendMessage(msg.chat.id, '❌ Error displaying configuration. Please try again later.');

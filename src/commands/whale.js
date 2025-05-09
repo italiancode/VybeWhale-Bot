@@ -311,79 +311,79 @@ function formatWhaleData(
 
     transfers.forEach((tx) => {
       // Dollar amount formatting
-      let usdValue = 0;
-      if (tx.valueUsd) {
-        usdValue = parseFloat(tx.valueUsd);
-      } else if (tx.usdAmount) {
-        usdValue = parseFloat(tx.usdAmount);
-      }
+    let usdValue = 0;
+    if (tx.valueUsd) {
+      usdValue = parseFloat(tx.valueUsd);
+    } else if (tx.usdAmount) {
+      usdValue = parseFloat(tx.usdAmount);
+    }
 
-      // Format as integer with commas
-      const usdAmount = usdValue
-        ? Math.round(usdValue).toLocaleString()
-        : "Unknown";
+    // Format as integer with commas
+    const usdAmount = usdValue
+      ? Math.round(usdValue).toLocaleString()
+      : "Unknown";
 
-      // Extract raw token amount
-      let tokenAmount = "Unknown";
-      if (tx.calculatedAmount) {
-        tokenAmount = tx.calculatedAmount;
-      } else if (tx.tokenAmount) {
-        tokenAmount = tx.tokenAmount;
-      } else if (tx.amount && tx.decimal) {
-        tokenAmount = Number(tx.amount) / Math.pow(10, tx.decimal);
-      }
+    // Extract raw token amount
+    let tokenAmount = "Unknown";
+    if (tx.calculatedAmount) {
+      tokenAmount = tx.calculatedAmount;
+    } else if (tx.tokenAmount) {
+      tokenAmount = tx.tokenAmount;
+    } else if (tx.amount && tx.decimal) {
+      tokenAmount = Number(tx.amount) / Math.pow(10, tx.decimal);
+    }
 
       // Token amount formatting
-      let formattedTokenAmount;
-      if (typeof tokenAmount === "number" || !isNaN(parseFloat(tokenAmount))) {
-        // Convert to a number if it's a string
-        const numAmount =
+    let formattedTokenAmount;
+    if (typeof tokenAmount === "number" || !isNaN(parseFloat(tokenAmount))) {
+      // Convert to a number if it's a string
+      const numAmount =
           typeof tokenAmount === "number"
             ? tokenAmount
             : parseFloat(tokenAmount);
 
-        // Extremely small numbers (use scientific notation)
-        if (numAmount > 0 && numAmount < 0.001) {
-          formattedTokenAmount = numAmount.toPrecision(3);
-        }
-        // Whole numbers - no decimal places
-        else if (
-          Number.isInteger(numAmount) ||
-          Math.round(numAmount) === numAmount
-        ) {
-          formattedTokenAmount = Math.round(numAmount).toLocaleString();
-        }
-        // Numbers that look like integers with many trailing zeros
-        else if (numAmount >= 1000) {
-          formattedTokenAmount = Math.round(numAmount).toLocaleString();
-        }
-        // For other numbers, simplify to at most 2 decimal places
-        else {
-          formattedTokenAmount = numAmount.toLocaleString(undefined, {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-          });
-        }
-      } else {
-        formattedTokenAmount = tokenAmount;
+      // Extremely small numbers (use scientific notation)
+      if (numAmount > 0 && numAmount < 0.001) {
+        formattedTokenAmount = numAmount.toPrecision(3);
       }
+      // Whole numbers - no decimal places
+      else if (
+        Number.isInteger(numAmount) ||
+        Math.round(numAmount) === numAmount
+      ) {
+        formattedTokenAmount = Math.round(numAmount).toLocaleString();
+      }
+      // Numbers that look like integers with many trailing zeros
+      else if (numAmount >= 1000) {
+        formattedTokenAmount = Math.round(numAmount).toLocaleString();
+      }
+      // For other numbers, simplify to at most 2 decimal places
+      else {
+        formattedTokenAmount = numAmount.toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        });
+      }
+    } else {
+      formattedTokenAmount = tokenAmount;
+    }
 
       // Build a more mobile-friendly layout for transfers only
       message += `➡️ *Whale transferred ${formattedTokenAmount} ${tokenSymbol}*\n`;
       message += `💵 $${usdAmount}\n`;
 
-      // Format addresses for wallet information
-      const fromAddress = tx.senderAddress || tx.fromAddress || tx.maker;
-      const toAddress = tx.receiverAddress || tx.toAddress || tx.taker;
+    // Format addresses for wallet information
+    const fromAddress = tx.senderAddress || tx.fromAddress || tx.maker;
+    const toAddress = tx.receiverAddress || tx.toAddress || tx.taker;
 
-      if (fromAddress && toAddress) {
-        const shortFrom = `${fromAddress.substring(
-          0,
-          4
-        )}...${fromAddress.substring(fromAddress.length - 4)}`;
-        const shortTo = `${toAddress.substring(0, 4)}...${toAddress.substring(
-          toAddress.length - 4
-        )}`;
+    if (fromAddress && toAddress) {
+      const shortFrom = `${fromAddress.substring(
+        0,
+        4
+      )}...${fromAddress.substring(fromAddress.length - 4)}`;
+      const shortTo = `${toAddress.substring(0, 4)}...${toAddress.substring(
+        toAddress.length - 4
+      )}`;
         const fromTrackCmd = `/trackwallet ${fromAddress}`;
         const toTrackCmd = `/trackwallet ${toAddress}`;
 
@@ -393,22 +393,22 @@ function formatWhaleData(
         message += `📥 To: \`${shortTo}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
           toTrackCmd
         )})\n`;
-      }
+    }
 
-      // Format date in simple terms
-      const date = tx.blockTime
-        ? new Date(tx.blockTime * 1000).toLocaleString(undefined, {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : new Date().toLocaleString(undefined, {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+    // Format date in simple terms
+    const date = tx.blockTime
+      ? new Date(tx.blockTime * 1000).toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : new Date().toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
 
       message += `⏰ ${date}\n`;
 
