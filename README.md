@@ -2,15 +2,14 @@
 
 A powerful Telegram bot that delivers real-time on-chain analytics for Solana tokens using Vybe APIs.
 
-
 ## 🌟 Features
 
 - **Comprehensive Token Analysis**: Get detailed token information including price, supply, market cap, and whale distribution metrics
-- **Whale Transfer Monitoring**: Monitor large transfers (whale movements) for any Solana token with real-time notifications
 - **Top Holder Analysis**: Identify the largest token holders and assess whale concentration risk with intuitive risk scoring
-- **Market Impact Prediction**: Get actionable insights about potential price impact from whale activity
+- **Whale Concentration Risk Assessment**: Evaluate potential market impact based on holder distribution data
+- **Whale Activity Monitoring**: Track all significant whale movements for any Solana token with real-time alerts
 - **⚡ One-Click Wallet Tracking**: Instantly follow any whale wallet with a single click (⚡ Track) - no copying addresses!
-- **Intelligent Concentration Risk Assessment**: Proprietary algorithm to calculate whale risk based on token distribution
+- **Exchange Holdings Detection**: Identify what percentage of tokens are held on major exchanges
 - **Smart Fallback System**: When API timeouts occur, provides direct links to Vybe Network for detailed analysis
 - **Memory System**: Remembers the last token you analyzed for quick follow-up lookups
 
@@ -68,9 +67,8 @@ Send `/token [token_address]` to get detailed information about any Solana token
 Send `/whale [token_address]` to get comprehensive whale information for any token:
 
 - Top 5 token holders with percentage of supply and USD value
-- Recent large transfers with detailed information
-- Whale concentration risk assessment
-- Potential market impact insights
+- Recent whale activity with detailed transfer information
+- Whale concentration risk assessment and volatility insights
 - One-click tracking buttons (⚡ Track) to follow any whale wallet instantly
 
 <div align="center">
@@ -88,20 +86,21 @@ Send `/whale [token_address]` to get comprehensive whale information for any tok
 
 ## 📝 Available Commands
 
-- `/start` - Initialize the bot and get welcome message
+- `/start` - Welcome message with quick start instructions
 - `/help` - Display available commands and usage information
 - `/token [ADDRESS]` - Get detailed token information and metrics
-- `/whale [ADDRESS]` - View comprehensive whale insights including top holders and transfers
+- `/whale [ADDRESS]` - View comprehensive whale insights including top holders and activity
 - `/trackwallet [ADDRESS]` - Start tracking a wallet address (or use ⚡ Track buttons for one-click tracking)
 - `/untrackwallet [ADDRESS]` - Stop tracking a wallet address
 - `/listwallets` - View all wallets you're currently tracking
+- `/config` - View and manage your current configuration
 - `/setthreshold [AMOUNT]` - Set minimum USD value for whale alerts
-- `/enablealerts [TYPE]` - Enable specific types of alerts
-- `/disablealerts [TYPE]` - Disable specific types of alerts
+- `/enablealerts [TYPE]` - Enable specific types of alerts (whale/wallet/all)
+- `/disablealerts [TYPE]` - Disable specific types of alerts (whale/wallet/all)
 
 ## 🏆 Project Summary
 
-VybeWhale bot delivers real-time Solana token analytics and whale alerts directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data and a standout whale analysis system that combines top holder data with transfer tracking to provide advanced risk assessment.
+VybeWhale bot delivers real-time Solana token analytics and whale alerts directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data and a standout whale analysis system that combines top holder data with complete activity monitoring to provide advanced risk assessment.
 
 Technical innovations include smart API optimization that dynamically adjusts request parameters based on token volume, multi-level fallback systems that ensure users always get value even when facing API limitations, and seamless integration with Vybe Network's web interface for deeper analysis.
 

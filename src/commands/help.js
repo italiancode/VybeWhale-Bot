@@ -5,25 +5,22 @@ const handler = async (bot, msg) => {
 🤖 *VybeWhale Bot Commands*
 
 *General Commands:*
-/start - Start the bot
+/start - Welcome & quick overview
 /help - Show this help message
 /config - View and manage all settings
 
-*Token Commands:*
-/token - Get detailed token analysis and market data
-/whale - View comprehensive whale insights and risk analysis
+*Analysis Commands:*
+/token [ADDRESS] - Token metrics, holders & whale distribution
+/whale [ADDRESS] - Top holders, whale activity & risk assessment
 
 *Wallet Tracking:*
-/trackwallet - Track a wallet's activity (or use ⚡ Track buttons)
-/listwallets - List all tracked wallets
-/untrackwallet - Stop tracking a wallet
+/trackwallet [ADDRESS] - Track wallet activity (or use ⚡ Track buttons)
+/listwallets - View all tracked wallets
+/untrackwallet [ADDRESS] - Stop tracking a wallet
 
 *Alert Settings:*
-/enablealerts [type] - Enable alerts:
-  • whale - Large transfers above threshold
-  • wallet - Activity from tracked wallets
-  • all - Both types of alerts
-/disablealerts [type] - Disable specific alerts
+/enablealerts [type] - Enable alerts (whale/wallet/all)
+/disablealerts [type] - Disable alerts (whale/wallet/all)
 /setthreshold [amount] - Set whale alert threshold (USD)
 
 *Examples:*
@@ -31,7 +28,6 @@ const handler = async (bot, msg) => {
 • /whale EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 • /trackwallet 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1
 • /setthreshold 10000
-• /enablealerts all
 `;
 
   await bot.sendMessage(msg.chat.id, helpText, { parse_mode: "Markdown" });

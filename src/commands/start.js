@@ -9,20 +9,17 @@ async function handler(bot, msg) {
     const welcomeMessage = `
 👋 *Welcome to VybeWhale Bot!*
 
-I provide real-time on-chain analytics for Solana tokens using Vybe API, helping you track:
-
-• 📊 *Token Analysis* - Price, market cap, supply metrics, holder trends
-• 🐋 *Whale Transfers* - Monitor large transfers for any Solana token
-• 👤 *Top Holder Analysis* - Identify largest holders with concentration risk assessment
-• ⚡ *One-Click Wallet Tracking* - Instantly track any wallet with a single button
-• 🔔 *Smart Alerts* - Get notified of whale activity for tokens you care about
+Your real-time Solana on-chain analytics assistant for tracking:
+• Token metrics and whale distribution
+• Whale activity monitoring for tokens
+• Top holder insights and concentration risk
+• ⚡ One-click wallet tracking
 
 *Quick Start:*
-1. Use /token to analyze any Solana token
-2. Use /whale to get comprehensive whale insights, concentration risk, and market impact analysis
-3. Use /trackwallet to monitor specific wallets
-4. Set your alert threshold with /setthreshold
-5. Enable alerts with /enablealerts whale or wallet
+1. /token [ADDRESS] - Get detailed token analysis
+2. /whale [ADDRESS] - View whale insights and activity
+3. /trackwallet [ADDRESS] - Track any wallet (or use ⚡ Track buttons)
+4. /config - View and manage your alert settings
 
 ${
   alertStatus
@@ -33,13 +30,13 @@ ${
 • Threshold: ${
         alertStatus.threshold
           ? "$" + alertStatus.threshold.toLocaleString()
-          : "Not set (default: $10,000)"
+          : "Not set"
       }
 `
     : ""
 }
 
-Use /help for all commands or /config to view your current settings.`;
+Use /help to see all available commands.`;
 
     await bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown" });
     logger.info(`Start command executed for chat ${chatId}`);
