@@ -14,8 +14,8 @@ Your go-to for Solana whale tracking and token insights:
 *Get Started:*
 1. /token [address] - Analyze any token
 2. /whale [address] - View whale insights and activity
-3. /trackwallet [address] - Track wallets with one click
-4. /config - View and manage your alert settings
+3. /trackwallet [address] - Track a wallet (or use ⚡ Track buttons)
+4. /config - View and manage all settings
 
 ${
   alertStatus
