@@ -9,34 +9,30 @@ async function handler(bot, msg) {
     const welcomeMessage = `
 👋 *Welcome to VybeWhale Bot!*
 
-Your real-time Solana on-chain analytics assistant for tracking:
-• Token metrics and whale distribution
-• Large whale activity
-• Top holder concentration analysis
-• Track wallet activity
+Your go-to for Solana whale tracking and token insights:
+• 🐳 Whale Alerts: Real-time notifications for big moves
+• 📊 Token Metrics: Price, supply, and holder trends
+• ⚡ One-Click Tracking: Follow any wallet instantly
+• 🔍 Risk Assessment: Whale concentration and market impact
 
-*Quick Start:*
-1. /token - Get detailed token analysis
-2. /whale - View whale insights and activity
-3. /trackwallet - Track any wallet (or use ⚡ Track buttons)
+*Get Started:*
+1. /token [address] - Analyze any token
+2. /whale [address] - View whale insights and activity
+3. /trackwallet [address] - Track wallets with one click
 4. /config - View and manage your alert settings
 
 ${
   alertStatus
     ? `
-*Your Alert Settings:*
-• Status: ${alertStatus.enabled ? "✅ Enabled" : "❌ Disabled"}
+*Your Settings:*
+• Alerts: ${alertStatus.enabled ? "✅ On" : "❌ Off"}
 • Types: ${alertStatus.types.length ? alertStatus.types.join(", ") : "None"}
-• Threshold: ${
-        alertStatus.threshold
-          ? "$" + alertStatus.threshold.toLocaleString()
-          : "Not set"
-      }
+• Threshold: $${alertStatus.threshold?.toLocaleString() || "Not set"}
 `
     : ""
 }
 
-Use /help to see all available commands.`;
+Type /help for more commands.`;
 
     await bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown" });
     logger.info(`Start command executed for chat ${chatId}`);
@@ -44,7 +40,7 @@ Use /help to see all available commands.`;
     logger.error("Error in start command:", error);
     await bot.sendMessage(
       msg.chat.id,
-      "Sorry, something went wrong. Please try again later."
+      "Oops! Something went wrong. Try again later."
     );
   }
 }

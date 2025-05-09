@@ -10,11 +10,11 @@ const handler = async (bot, msg) => {
 /config - View and manage all settings
 
 *Analysis Commands:*
-/token [ADDRESS] - Token metrics, holders & whale distribution
-/whale [ADDRESS] - Top holders, whale activity & risk assessment
+/token [ADDRESS] - Token analysis: price, holders & whale distribution
+/whale [ADDRESS] - Whale watch: activity & risk assessment
 
 *Wallet Tracking:*
-/trackwallet [ADDRESS] - Track wallet activity (or use ⚡ Track buttons)
+/trackwallet [ADDRESS] - Track wallet (or use ⚡ Track buttons)
 /listwallets - View all tracked wallets
 /untrackwallet [ADDRESS] - Stop tracking a wallet
 
