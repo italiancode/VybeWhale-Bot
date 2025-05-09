@@ -473,10 +473,10 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
   message += `\n📡 *Whale Watch:*\n• Use [/whale ${tokenInfo.mintAddress}] to see recent whale activity for this token.\n`;
 
   // Add largest holder tracking button if available
-  if (hasTopHolders && topHolders.length > 0) {
-    const largestHolderAddress = topHolders[0].ownerAddress;
-    message += `• Track largest holder [⚡](https://t.me/share/url?url=${encodeURIComponent(`/trackwallet ${largestHolderAddress}`)})\n`;
-  }
+  // if (hasTopHolders && topHolders.length > 0) {
+  //   const largestHolderAddress = topHolders[0].ownerAddress;
+  //   message += `• Track largest holder [⚡](https://t.me/share/url?url=${encodeURIComponent(`/trackwallet ${largestHolderAddress}`)})\n`;
+  // }
 
   // Add analytics link
   message += `\n📈 *Full Analytics:*\n[View full chart on AlphaVybe 🔗](https://alpha.vybenetwork.com/tokens/${tokenInfo.mintAddress})`;
