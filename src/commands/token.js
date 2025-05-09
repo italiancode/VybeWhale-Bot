@@ -108,6 +108,39 @@ async function processTokenInput(bot, msg, tokenInput) {
     await bot.deleteMessage(chatId, waitingMsg.message_id).catch((err) => {
       logger.warn(`Could not delete waiting message: ${err.message}`);
     });
+    
+    // Check if we have meaningful data to display
+    const hasPrice = tokenInfo.price !== undefined && tokenInfo.price !== null;
+    const hasHolderCount = (holderData?.current > 0) || (tokenInfo.holderCount > 0);
+    const hasTopHolders = topHolders && topHolders.length > 0;
+    const hasMarketCap = tokenInfo.marketCap !== undefined && tokenInfo.marketCap !== null;
+    
+    // If we have very limited data, provide helpful explanation
+    if (!hasPrice && !hasMarketCap && !hasTopHolders) {
+      // Build a more helpful message for tokens with limited data
+      const tokenSymbol = tokenInfo.symbol || "this token";
+      const helpMessage = 
+        `ℹ️ *Limited data available for ${tokenSymbol}*\n\n` +
+        `The token exists on-chain, but has limited market data. This could be because:\n` +
+        `• The token is new or has low trading volume\n` +
+        `• It hasn't been listed on major exchanges yet\n` +
+        `• This token is not yet fully indexed by Vybe Network\n\n` +
+        (hasHolderCount ? `• Holders: ${formatNumber(holderData?.current || tokenInfo.holderCount)}\n\n` : '') +
+        `📊 [View Token on Vybe Network](https://alpha.vybenetwork.com/tokens/${tokenInput}) for all available data\n\n` +
+        `You can try the /whale command to see if there are any recent large transactions for this token.`;
+      
+      await bot.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
+      
+      // Still store the token for later reference
+      stateManager.setState(userId, {
+        command: "token",
+        lastToken: tokenInput,
+        lastTokenSymbol: tokenInfo.symbol || "Unknown Token",
+      });
+      
+      logger.info(`Limited token info provided for user ${userId}`);
+      return;
+    }
 
     // Format and send response
     const response = formatTokenInfo(tokenInfo, holderData, topHolders);
@@ -243,6 +276,12 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
     });
   };
 
+  // Check what data we have available
+  const hasPrice = tokenInfo.price !== undefined && tokenInfo.price !== null;
+  const hasMarketCap = tokenInfo.marketCap !== undefined && tokenInfo.marketCap !== null;
+  const hasVolume = tokenInfo.usdValueVolume24h !== undefined && tokenInfo.usdValueVolume24h !== null;
+  const hasSupply = tokenInfo.currentSupply !== undefined && tokenInfo.currentSupply !== null;
+  
   const price24hChange =
     tokenInfo.price && tokenInfo.price1d
       ? (
@@ -260,7 +299,7 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
       : null;
 
   const formatPriceChange = (change) => {
-    if (!change) return "";
+    if (!change) return "N/A";
     return change > 0 ? `🟢 +${change}%` : `🔴 ${change}%`;
   };
 
@@ -310,39 +349,62 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
   // Get holder count - first try to get from holderData, then from tokenInfo.holderCount
   const holderCount = holderData?.current || tokenInfo.holderCount || 0;
   const topHolderConcentration = calculateHolderConcentration();
+  const hasTopHolders = topHolders && topHolders.length > 0;
 
   let message = `💰 *${tokenInfo.name || "Unknown Token"} (${
     tokenInfo.symbol || "N/A"
   }) ${tokenInfo.verified ? "✅" : ""}*\n`;
   message += `━━━━━━━━━━━━━━━━━━\n`;
+  
+  // Market overview section - only include if we have some market data
   message += `📊 *Market Overview*\n`;
-  message += `• Price: $${formatNumber(tokenInfo.price)}\n`;
-  message += `• 24h: ${formatPriceChange(
-    price24hChange
-  )} | 7d: ${formatPriceChange(price7dChange)}\n`;
-  message += `• Market Cap: $${formatNumber(tokenInfo.marketCap)}\n`;
-  message += `• 24h Volume: $${formatNumber(tokenInfo.usdValueVolume24h)}\n`;
-  message += `• Circulating Supply: ${formatNumber(tokenInfo.currentSupply)}\n`;
+  
+  // Always show price if available
+  if (hasPrice) {
+    message += `• Price: $${formatNumber(tokenInfo.price)}\n`;
+    
+    // Only show price changes if we have them
+    if (price24hChange || price7dChange) {
+      const price24hText = price24hChange ? formatPriceChange(price24hChange) : "N/A";
+      const price7dText = price7dChange ? formatPriceChange(price7dChange) : "N/A";
+      message += `• 24h: ${price24hText} | 7d: ${price7dText}\n`;
+    }
+  } else {
+    message += `• Price: Not Available\n`;
+  }
+  
+  // Add other market data if available
+  if (hasMarketCap) {
+    message += `• Market Cap: $${formatNumber(tokenInfo.marketCap)}\n`;
+  }
+  
+  if (hasVolume) {
+    message += `• 24h Volume: $${formatNumber(tokenInfo.usdValueVolume24h)}\n`;
+  }
+  
+  if (hasSupply) {
+    message += `• Circulating Supply: ${formatNumber(tokenInfo.currentSupply)}\n`;
+  }
 
-  // Add holders data - ensure we display it as a whole number
-  const displayHolderCount = parseInt(holderCount || 0);
-  message += `• Holders: ${formatNumber(displayHolderCount)}\n`;
+  // Add holders data only if we have it
+  if (holderCount > 0) {
+    const displayHolderCount = parseInt(holderCount || 0);
+    message += `• Holders: ${formatNumber(displayHolderCount)}\n`;
 
-  // Add holder trend if available
-  const holdersTrendText = formatHoldersTrend();
-  if (holdersTrendText !== "N/A") {
-    message += `• Holder Trend: ${holdersTrendText}\n`;
+    // Add holder trend if available
+    const holdersTrendText = formatHoldersTrend();
+    if (holdersTrendText !== "N/A") {
+      message += `• Holder Trend: ${holdersTrendText}\n`;
+    }
   }
 
   message += `• Verified: ${tokenInfo.verified ? "✅ Yes" : "❌ No"}\n`;
 
   // Add whale distribution section if top holders data is available
-  if (topHolders && topHolders.length > 0) {
+  if (hasTopHolders) {
     message += `\n🐋 *Whale Distribution*\n`;
-    message += `• Top 5 hold: ${topHolderConcentration.toFixed(
-      2
-    )}% of supply\n`;
-
+    message += `• Top 5 hold: ${topHolderConcentration.toFixed(2)}% of supply\n`;
+    
     // Determine whale concentration risk
     let whaleRisk = "";
     if (topHolderConcentration > 70) {
@@ -356,9 +418,9 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
     } else {
       whaleRisk = "VERY LOW ✅";
     }
-
+    
     message += `• Whale Risk: ${whaleRisk}\n`;
-
+    
     // Display largest holder
     if (topHolders.length > 0) {
       const largestHolder = topHolders[0];
@@ -366,9 +428,18 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
       const holderPercentage = parseFloat(
         largestHolder.percentageOfSupplyHeld
       ).toFixed(2);
-      message += `• Largest Holder: ${holderName} (${holderPercentage}%)\n`;
+      
+      if (holderName === "Unknown Wallet") {
+        // If unknown wallet, show shortened address that can be copied
+        const address = largestHolder.ownerAddress;
+        const shortAddr = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        message += `• Largest Holder: \`${shortAddr}\` (${holderPercentage}%)\n`;
+      } else {
+        // If known wallet, just show the name
+        message += `• Largest Holder: ${holderName} (${holderPercentage}%)\n`;
+      }
     }
-
+    
     // Calculate exchange holdings if available
     const exchangeHolders = topHolders.filter(
       (h) =>
@@ -383,24 +454,37 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
           h.ownerName.includes("OKX") ||
           h.ownerName.includes("Gate"))
     );
-
+    
     if (exchangeHolders.length > 0) {
       const exchangeConcentration = exchangeHolders.reduce((total, holder) => {
         return total + (parseFloat(holder.percentageOfSupplyHeld) || 0);
       }, 0);
-
+      
       message += `• Exchange Holdings: ${exchangeConcentration.toFixed(2)}%\n`;
     }
+  } else if (hasPrice || hasMarketCap) {
+    // If we have market data but no whale data, add a note about it
+    message += `\n🐋 *Whale Data*\n`;
+    message += `• Top holder data not yet available for this token\n`;
+    message += `• Use /whale command to check for recent large transfers\n`;
   }
 
+  // Add Whale Watch section
   message += `\n📡 *Whale Watch:*\n• Use [/whale ${tokenInfo.mintAddress}] to see recent whale activity for this token.\n`;
 
-  // if (topHolders && topHolders.length > 0) {
-  //   const largestHolderAddress = topHolders[0].ownerAddress;
-  //   message += `• Track largest holder [⚡](https://t.me/share/url?url=${encodeURIComponent(`/trackwallet ${largestHolderAddress}`)})\n`;
-  // }
+  // Add largest holder tracking button if available
+  if (hasTopHolders && topHolders.length > 0) {
+    const largestHolderAddress = topHolders[0].ownerAddress;
+    message += `• Track largest holder [⚡](https://t.me/share/url?url=${encodeURIComponent(`/trackwallet ${largestHolderAddress}`)})\n`;
+  }
 
+  // Add analytics link
   message += `\n📈 *Full Analytics:*\n[View full chart on AlphaVybe 🔗](https://alpha.vybenetwork.com/tokens/${tokenInfo.mintAddress})`;
+
+  // Add note about limited data if we're missing key metrics
+  if (!hasPrice || !hasMarketCap || !hasTopHolders) {
+    message += `\n\nℹ️ *Note:* Some data may be limited for newer or less tracked tokens.`;
+  }
 
   return message;
 }

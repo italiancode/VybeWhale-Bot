@@ -20,23 +20,23 @@ function logApiMethods() {
 logApiMethods();
 
 /**
- * Fetches whale transactions for a specific token 
+ * Fetches whale transfers for a specific token 
  * 
  * @param {string} mintAddress - The token mint address
- * @param {number} minUsdAmount - Minimum USD transaction value to include
- * @param {number} limit - Maximum number of transactions to return
- * @returns {Promise<Array>} - Array of whale transactions
+ * @param {number} minUsdAmount - Minimum USD transfer value to include
+ * @param {number} limit - Maximum number of transfers to return
+ * @returns {Promise<Array>} - Array of whale transfers
  */
-async function getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
+async function getWhaleTransfers(mintAddress, minUsdAmount, limit = 10) {
   try {
     // Validate inputs
     if (!mintAddress) {
-      logger.error("No mint address provided for whale transactions");
+      logger.error("No mint address provided for whale transfers");
       return [];
     }
     
     const tokenAddress = mintAddress.trim();
-    logger.info(`Fetching whale transactions for token: ${tokenAddress}`);
+    logger.info(`Fetching whale transfers for token: ${tokenAddress}`);
 
     // Try to get token details first to validate the token exists
     let tokenInfo;
@@ -71,23 +71,23 @@ async function getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
     }
     
     // Extract transfers from response
-    let transactions = [];
+    let transfers = [];
     if (Array.isArray(response.data)) {
-      transactions = response.data;
+      transfers = response.data;
     } else if (response.data.transfers && Array.isArray(response.data.transfers)) {
-      transactions = response.data.transfers;
+      transfers = response.data.transfers;
     }
 
     // Since the API may return "demo data", we need to check if mintAddress matches
     // what we requested, and filter if needed
-    const validTransactions = transactions.filter(tx => {
-      // Check if transaction has a valid USD amount
+    const validTransfers = transfers.filter(tx => {
+      // Check if transfer has a valid USD amount
       const txValueUsd = parseFloat(tx.valueUsd || tx.usdAmount || 0);
       if (isNaN(txValueUsd) || txValueUsd < parseFloat(minUsdAmount)) {
         return false;
       }
       
-      // Include transactions with matching mintAddress if possible
+      // Include transfers with matching mintAddress if possible
       // If mintAddress is null or undefined, we'll accept it (likely demo data)
       if (tokenAddress && tx.mintAddress && tx.mintAddress !== tokenAddress) {
         return false;
@@ -96,14 +96,14 @@ async function getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
       return true;
     });
     
-    // If we didn't get any valid transactions for the requested token,
-    // try to use some of the transactions and "rewrite" them with the proper token
-    let results = validTransactions;
+    // If we didn't get any valid transfers for the requested token,
+    // try to use some of the transfers and "rewrite" them with the proper token
+    let results = validTransfers;
     
-    if (validTransactions.length === 0 && transactions.length > 0 && tokenInfo) {
-      console.log(`No valid transactions for ${tokenAddress}, using demo data with token info`);
-      // Use some transactions and override token details
-      results = transactions
+    if (validTransfers.length === 0 && transfers.length > 0 && tokenInfo) {
+      console.log(`No valid transfers for ${tokenAddress}, using demo data with token info`);
+      // Use some transfers and override token details
+      results = transfers
         .filter(tx => {
           const txValueUsd = parseFloat(tx.valueUsd || tx.usdAmount || 0);
           return !isNaN(txValueUsd) && txValueUsd >= parseFloat(minUsdAmount);
@@ -117,7 +117,7 @@ async function getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
         }));
     } else {
       // Sort by value in descending order and limit to requested number
-      results = validTransactions
+      results = validTransfers
         .sort((a, b) => {
           const aValue = parseFloat(a.valueUsd || a.usdAmount || 0);
           const bValue = parseFloat(b.valueUsd || b.usdAmount || 0);
@@ -126,15 +126,15 @@ async function getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
         .slice(0, limit);
     }
     
-    logger.info(`Found ${transactions.length} transactions, filtered to ${validTransactions.length}, returning ${results.length} for ${tokenAddress}`);
+    logger.info(`Found ${transfers.length} transfers, filtered to ${validTransfers.length}, returning ${results.length} for ${tokenAddress}`);
     return results;
   } catch (error) {
-    logger.error(`Error fetching whale transactions for ${mintAddress}:`, error);
+    logger.error(`Error fetching whale transfers for ${mintAddress}:`, error);
     // Return empty array instead of throwing to avoid crashing the bot
     return [];
   }
 }
 
 module.exports = {
-  getWhaleTransactions,
+  getWhaleTransfers,
 }; 

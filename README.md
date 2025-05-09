@@ -73,38 +73,13 @@ Example response:
 
 ![Whale Command Screenshot](./public/whale.png)
 
-## Understanding Whale Analysis
-
-The bot's whale analysis combines two key data points:
-
-1. **Top Token Holders**: Identifies wallets holding the largest percentages of a token's supply
-2. **Recent Whale Transactions**: Shows high-value transactions above the specified threshold
-
-Based on this data, the bot calculates a **Whale Concentration Risk** level:
-- **VERY HIGH**: >70% supply held by top 5 holders - extreme caution advised
-- **HIGH**: 50-70% held by top 5 - significant manipulation potential
-- **MODERATE**: 30-50% held by top 5 - some manipulation possible
-- **LOW**: 15-30% held by top 5 - well-distributed but still watch large holders
-- **VERY LOW**: <15% held by top 5 - minimal manipulation risk
-
-### One-Click Whale Tracking
-
-See an interesting whale wallet? Just click the ⚡ button next to any wallet address to instantly start tracking it. You'll receive alerts whenever the wallet makes significant moves, potentially giving you an edge in the market.
-
-For more detailed information, see the [Understanding Whale Analysis](Understanding-Whale-Analysis.md) document.
-
 ## API Behavior and Limitations
 
 During development and testing, we observed several important characteristics of the Vybe API:
 
-### Whale Transaction API
-
-- **Token Coverage**: The whale transaction API primarily supports established tokens with significant trading volume. Newer, less popular, or custom tokens may not be tracked.
+- **Token Coverage**: The transaction API primarily supports established tokens with significant trading volume. Newer, less popular, or custom tokens may not be tracked.
 - **API Response Structure**: The API may return transactions in different formats depending on the token. Our implementation carefully handles these variations.
 - **No-Data Handling**: For tokens without data, the bot provides helpful information explaining possible reasons and directs users to Vybe Network for additional analysis.
-
-### Top Token Holders API
-
 - **Data Availability**: Top holder information is available for most established tokens but may be limited for newer tokens.
 - **Identification**: The API attempts to identify known wallets (exchanges, projects, etc.) but many will show as "Unknown".
 - **Data Freshness**: Holder data is generally updated on a regular basis but may not reflect the absolute latest movements.
