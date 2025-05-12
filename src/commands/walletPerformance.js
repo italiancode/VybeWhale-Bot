@@ -18,11 +18,21 @@ function formatUSD(value) {
  * Format percentage values for display
  */
 function formatPercentage(value) {
-  return new Intl.NumberFormat('en-US', {
+  // For IntlNumberFormat, the value 0.01 will format as 1%
+  // If API returns 0.91, we need to format it as 0.91%
+
+  // First, ensure we're working with a number
+  const numValue = parseFloat(value);
+  
+  // Create the formatter with options for percentage display
+  const formatter = new Intl.NumberFormat('en-US', {
     style: 'percent',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(value / 100);
+  });
+  
+  // Format using the appropriate decimal conversion
+  return formatter.format(numValue / 100);
 }
 
 /**
@@ -182,6 +192,13 @@ async function processWalletPerformance(bot, chatId, walletAddress, days = 14) {
       hasDailyValues: performance?.performance?.dailyValues?.length > 0
     })}`);
     
+    // Log specific price change values
+    if (performance?.topHoldings?.length > 0) {
+      performance.topHoldings.forEach(token => {
+        logger.info(`Token ${token.symbol} price change: raw=${token.priceChange1d}, processed=${formatPercentage(token.priceChange1d)}`);
+      });
+    }
+    
     // Get wallet trading performance (PnL data)
     // Convert days to appropriate resolution
     const resolution = daysToResolution(days);
@@ -207,7 +224,9 @@ async function processWalletPerformance(bot, chatId, walletAddress, days = 14) {
       changeStr = `⚠️ Data anomaly detected`;
       logger.warn(`Data anomaly: Wallet ${walletAddress} shows $0 value but ${change.absolute} change`);
     } else {
-      changeStr = `${direction} ${change.absolute >= 0 ? '+' : ''}${formatUSD(change.absolute)} (${formatPercentage(change.percentage)})`;
+      // Format the percentage correctly without using formatPercentage
+      const percentageStr = change.percentage.toFixed(2);
+      changeStr = `${direction} ${change.absolute >= 0 ? '+' : ''}${formatUSD(change.absolute)} (${percentageStr}%)`;
     }
     
     // Calculate volatility (simple implementation - standard deviation of daily changes)
@@ -264,9 +283,12 @@ async function processWalletPerformance(bot, chatId, walletAddress, days = 14) {
       
     // Check if topHoldings exists and has items
     if (performance.topHoldings && performance.topHoldings.length > 0) {
-      message += performance.topHoldings.slice(0, 5).map((token, i) => 
-        `${i+1}. ${token.symbol}: ${formatUSD(token.value)} (${token.priceChange1d >= 0 ? '↗️' : '↘️'} ${formatPercentage(token.priceChange1d/100)})`
-      ).join('\n');
+      message += performance.topHoldings.slice(0, 5).map((token, i) => {
+        // Display actual percentage without extra processing
+        const priceChangePercent = token.priceChange1d.toFixed(2);
+        const directionIcon = token.priceChange1d >= 0 ? '↗️' : '↘️';
+        return `${i+1}. ${token.symbol}: ${formatUSD(token.value)} (${directionIcon} ${priceChangePercent}%)`;
+      }).join('\n');
     } else {
       message += "No holdings data available";
     }
@@ -280,7 +302,7 @@ async function processWalletPerformance(bot, chatId, walletAddress, days = 14) {
       message += `\n\n` +
         `🔄 *Trading Performance (${resolution}):*\n` +
         `*Profit/Loss:* ${totalPnL >= 0 ? '✅' : '❌'} ${formatUSD(totalPnL)}\n` +
-        `*Win Rate:* ${formatPercentage(winRate)}\n` +
+        `*Win Rate:* ${winRate.toFixed(2)}%\n` +
         `*Trades:* ${overview.tradeCount} (${overview.winningTrades} wins, ${overview.losingTrades} losses)\n` +
         `*Tokens Traded:* ${overview.uniqueTokensTraded}`;
       
@@ -379,7 +401,7 @@ async function processWalletPnLDetail(bot, chatId, walletAddress, resolution = "
       `• Unrealized P&L: ${formatUSD(overview.unrealizedPnL)}\n\n` +
       
       `*Trading Stats:*\n` +
-      `• Win Rate: ${formatPercentage(overview.winRate)}\n` +
+      `• Win Rate: ${overview.winRate.toFixed(2)}%\n` +
       `• Trades: ${overview.tradeCount} total\n` +
       `• Winning Trades: ${overview.winningTrades}\n` +
       `• Losing Trades: ${overview.losingTrades}\n` +
@@ -398,7 +420,7 @@ async function processWalletPnLDetail(bot, chatId, walletAddress, resolution = "
       topTokens.forEach((token, i) => {
         const symbol = token.tokenSymbol || 'Unknown';
         const pnl = formatUSD(token.totalPnL);
-        const roi = formatPercentage(token.roi || 0);
+        const roi = token.roi.toFixed(2) + '%';
         const status = token.isProfitable ? '✅' : '❌';
         
         message += `${i+1}. ${status} ${symbol}: ${pnl} (ROI: ${roi})\n`;
@@ -444,4 +466,4 @@ module.exports = {
   handleWalletPerformanceInput,
   processWalletPnLDetail, // Export for callback handling
   processWalletPerformance // Export for wallet performance callback
-}; 
+};
