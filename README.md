@@ -116,7 +116,7 @@ Track up to 5 wallets for ongoing analysis:
   <p><i>A screenshot of the wallet tracking interface</i></p>
 </div>
 
-> **Coming Soon:** Receive alerts for significant wallet activities like large transfers, swaps, and value changes.
+> **Coming Soon:** Receive alerts for significant wallet activities like large transfers, swaps(trades), and value changes.
 
 ## 💻 Technical Implementation
 
