@@ -87,11 +87,6 @@ Send `/walletperformance [wallet_address]` or use the performance tracking featu
 - Comprehensive trading performance (PnL) data including win rates and trade counts
 - View performance over different time periods (7, 14, or 30 days)
 
-<div align="center">
-  <img src="./public/wallet-performance.png" alt="Wallet Performance Screenshot" width="500"/>
-  <p><i>Add a screenshot of the wallet performance analysis here</i></p>
-</div>
-
 ### Trading Analysis (PnL)
 
 Access detailed trading performance for any wallet:
@@ -103,8 +98,8 @@ Access detailed trading performance for any wallet:
 - Trade analysis across different time periods (1, 7, or 30 days)
 
 <div align="center">
-  <img src="./public/pnl-analysis.png" alt="PnL Analysis Screenshot" width="500"/>
-  <p><i>Add a screenshot of the PnL analysis here</i></p>
+  <img src="./public/wallet-performance.png" alt="Wallet Performance Screenshot" width="500"/>
+  <p><i>Add a screenshot of the wallet performance analysis here</i></p>
 </div>
 
 ### Wallet Tracking
