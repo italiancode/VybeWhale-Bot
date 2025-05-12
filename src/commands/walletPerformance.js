@@ -284,10 +284,11 @@ async function processWalletPerformance(bot, chatId, walletAddress, days = 14) {
     // Check if topHoldings exists and has items
     if (performance.topHoldings && performance.topHoldings.length > 0) {
       message += performance.topHoldings.slice(0, 5).map((token, i) => {
-        // Display actual percentage without extra processing
-        const priceChangePercent = token.priceChange1d.toFixed(2);
-        const directionIcon = token.priceChange1d >= 0 ? '↗️' : '↘️';
-        return `${i+1}. ${token.symbol}: ${formatUSD(token.value)} (${directionIcon} ${priceChangePercent}%)`;
+        // Show symbol, amount, and value
+        const amount = parseFloat(token.amount).toLocaleString(undefined, {
+          maximumFractionDigits: token.amount >= 1 ? 2 : 6
+        });
+        return `${i+1}. ${token.symbol}: ${amount} (${formatUSD(token.value)})`;
       }).join('\n');
     } else {
       message += "No holdings data available";
