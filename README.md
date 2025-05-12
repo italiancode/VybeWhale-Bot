@@ -99,7 +99,7 @@ Access detailed trading performance for any wallet:
 
 <div align="center">
   <img src="./public/wallet-performance.png" alt="Wallet Performance Screenshot" width="500"/>
-  <p><i>Add a screenshot of the wallet performance analysis here</i></p>
+  <p><i>A screenshot of the wallet performance analysis</i></p>
 </div>
 
 ### Wallet Tracking
@@ -113,7 +113,7 @@ Track up to 5 wallets for ongoing analysis:
 
 <div align="center">
   <img src="./public/wallet-tracking.png" alt="Wallet Tracking Screenshot" width="500"/>
-  <p><i>Add a screenshot of the wallet tracking interface here</i></p>
+  <p><i>A screenshot of the wallet tracking interface</i></p>
 </div>
 
 > **Coming Soon:** Receive alerts for significant wallet activities like large transfers, swaps, and value changes.
