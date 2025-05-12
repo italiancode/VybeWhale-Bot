@@ -23,18 +23,6 @@ class VybeAPI {
       throw error;
     }
   }
-
-  // The following methods are unused in the command files, so they've been removed:
-  // - getWhaleTransactions (now using the specialized version from whaleTransactions.js)
-  // - getBotWhaleTransactions (replaced by functions in whaleTransactions.js)
-  // - getWalletTokenBalance
-  // - getTokenTopHolders (replaced by getTopTokenHolders in topTokenHolder.js)
-  // - getTokenTransferVolume
-  // - getWalletInfo
-  // - trackWallet
-  // - untrackWallet
-  // - isWalletTracked
-  // - getTrackedWallets
 }
 
 module.exports = new VybeAPI();

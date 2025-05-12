@@ -1,15 +1,20 @@
-# VybeWhale Telegram Bot: Real-time Solana whale tracking using Vybe APIs. 
+# VybeWhale Telegram Bot: Real-time Solana whale tracking using Vybe APIs.
 
 A powerful Telegram bot that delivers real-time on-chain analytics for Solana tokens using Vybe APIs.
 
 ## 🌟 Features
 
 - **Token Analysis**: Get detailed token information including price, market cap, supply metrics, holder trends, and whale distribution
-- **Whale Watch**: View whale insights, activity & risk assessment for any Solana token
 - **Risk Assessment**: Get insights about whale concentration and potential price volatility
-- **⚡ One-Click Tracking**: Instantly follow any whale wallet with a single click (⚡ Track) - no copying addresses!
+- **Whale Watch**: View whale insights, activity & risk assessment for any Solana token
+- **Wallet Performance Tracking**: Analyze any wallet's performance with detailed metrics on holdings, value changes, and trading activity
+- **Trading PnL Analysis**: Get comprehensive Profit & Loss data for any wallet including win rates, best performers, and ROI metrics
+- **Easy Wallet Tracking**: Manage and track up to 5 wallets with detailed performance analytics
+- **Vybe Alpha Integration**: Direct links to the Vybe Alpha platform for deeper analysis
 - **Smart Fallbacks**: When API timeouts occur, provides direct links to Vybe Network for detailed analysis
 - **Memory System**: Remembers your last analyzed token for quick follow-up lookups
+
+> **Note:** Wallet Alert System is currently under development. Future updates will include real-time alerts for wallet transfers, significant trades, and custom notifications based on user-defined criteria.
 
 ## 📱 Demo
 
@@ -66,11 +71,57 @@ Send `/whale [token_address]` to get comprehensive whale information for any tok
 - Top 5 token holders with percentage of supply and USD value
 - Recent whale activity with detailed transfer information
 - Whale concentration risk assessment
-- One-click tracking buttons (⚡ Track) to follow any whale wallet instantly
+- One-click tracking buttons to follow any whale wallet
 
 <div align="center">
   <img src="./public/whale.png" alt="Whale Command Screenshot" width="500"/>
 </div>
+
+### Wallet Performance
+
+Send `/walletperformance [wallet_address]` or use the performance tracking feature from `/listwallets` to analyze any wallet:
+
+- Current value, highest and lowest value over the selected time period
+- Performance metrics with volatility assessment
+- Top token holdings with values and price changes
+- Comprehensive trading performance (PnL) data including win rates and trade counts
+- View performance over different time periods (7, 14, or 30 days)
+
+<div align="center">
+  <img src="./public/wallet-performance.png" alt="Wallet Performance Screenshot" width="500"/>
+  <p><i>Add a screenshot of the wallet performance analysis here</i></p>
+</div>
+
+### Trading Analysis (PnL)
+
+Access detailed trading performance for any wallet:
+
+- Total, realized, and unrealized Profit & Loss
+- Win rate and trade statistics
+- Top performing tokens with ROI metrics
+- Detailed breakdown of trading activity
+- Trade analysis across different time periods (1, 7, or 30 days)
+
+<div align="center">
+  <img src="./public/pnl-analysis.png" alt="PnL Analysis Screenshot" width="500"/>
+  <p><i>Add a screenshot of the PnL analysis here</i></p>
+</div>
+
+### Wallet Tracking
+
+Track up to 5 wallets for ongoing analysis:
+
+- Use `/trackwallet [wallet_address]` to add a wallet to your tracking list
+- View all tracked wallets with `/listwallets`
+- Remove wallets using `/untrackwallet [wallet_address]`
+- Analyze any tracked wallet with a single click
+
+<div align="center">
+  <img src="./public/wallet-tracking.png" alt="Wallet Tracking Screenshot" width="500"/>
+  <p><i>Add a screenshot of the wallet tracking interface here</i></p>
+</div>
+
+> **Coming Soon:** Receive alerts for significant wallet activities like large transfers, swaps, and value changes.
 
 ## 💻 Technical Implementation
 
@@ -87,9 +138,10 @@ Send `/whale [token_address]` to get comprehensive whale information for any tok
 - `/help` - Display available commands and usage information
 - `/token [ADDRESS]` - Get detailed token information and metrics
 - `/whale [ADDRESS]` - View comprehensive whale insights and activity
-- `/trackwallet [ADDRESS]` - Start tracking a wallet address (or use ⚡ Track buttons)
+- `/walletperformance [ADDRESS]` - Analyze any wallet's performance, holdings, and trading activity
+- `/trackwallet [ADDRESS]` - Start tracking a wallet address for ongoing analysis
 - `/untrackwallet [ADDRESS]` - Stop tracking a wallet address
-- `/listwallets` - View all wallets you're currently tracking
+- `/listwallets` - View all wallets you're currently tracking with quick analysis options
 - `/config` - View and manage your current configuration
 - `/setthreshold [AMOUNT]` - Set minimum USD value for whale alerts
 - `/enablealerts [TYPE]` - Enable specific types of alerts (whale/wallet/all)
@@ -97,7 +149,15 @@ Send `/whale [token_address]` to get comprehensive whale information for any tok
 
 ## 🏆 Project Summary
 
-VybeWhale bot delivers real-time Solana token analytics and whale insights directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data and a standout whale watch system that combines top holder data with activity monitoring to provide risk assessment.
+VybeWhale bot delivers real-time Solana token analytics and whale insights directly in Telegram chats. The bot features a robust token analyzer with comprehensive market data, a standout whale watch system that combines top holder data with activity monitoring to provide risk assessment, and advanced wallet performance tracking capabilities.
+
+Key features include:
+
+- **Complete Token Analytics**: Comprehensive market data, supply metrics, and risk assessment
+- **Whale Monitoring**: Top holder tracking with concentration and risk metrics
+- **Wallet Performance Dashboard**: Detailed tracking of wallet value, holdings, and performance over time
+- **Trading PnL Analysis**: In-depth profit and loss metrics for trader analysis
+- **Alpha Integration**: Seamless links to the Vybe Alpha platform for deeper analysis
 
 Technical innovations include API optimization that dynamically adjusts request parameters based on token volume, multi-level fallback systems that ensure users always get value even when facing API limitations, and seamless integration with Vybe Network's web interface for deeper analysis.
 
@@ -107,20 +167,23 @@ VybeWhale Bot has significant potential in the crypto market:
 
 ### Monetization
 
-- **Premium Features**: Offer custom thresholds, additional tracked wallets, and priority API access.
-- **White Label Solutions**: Brand the bot for crypto projects' communities.
-- **Enterprise Use**: License to trading firms and crypto funds.
+- **Premium Features**: Offer higher wallet tracking limits, advanced PnL analytics, and priority API access
+- **Trader Insights**: Provide advanced trading signals and performance forecasting
+- **White Label Solutions**: Brand the bot for crypto projects' communities
+- **Enterprise Use**: License to trading firms and crypto funds
 
 ### Scalability
 
-- **API Integration Hub**: Centralize multiple data sources.
-- **Community Features**: Modular design for rapid iteration.
+- **API Integration Hub**: Centralize multiple data sources
+- **Community Features**: Modular design for rapid iteration
+- **Custom Alerts**: Personalized notification system based on wallet activity (coming soon)
 
 ### Market Advantage
 
-- **Real-Time Insights**: Actionable data for traders.
-- **User-Friendly**: Accessible to non-technical users.
-- **Network Effect**: Each tracked wallet benefits the entire user base.
+- **Real-Time Insights**: Actionable data for traders
+- **User-Friendly**: Accessible to non-technical users
+- **Network Effect**: Each tracked wallet benefits the entire user base
+- **Trading Performance**: Unique PnL analysis not commonly available in other tools
 
 ## 🔗 Deployment
 

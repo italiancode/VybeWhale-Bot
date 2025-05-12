@@ -1,12 +1,15 @@
 const Redis = require('redis');
 const vybeApi = require('./vybeApi');
 const logger = require('../utils/logger');
+const { getWhaleTransfers } = require('./vybeApi/whaleTransfers');
+const { getWalletTokens, processWalletTokenBalance } = require('./vybeApi/walletTokens');
 
 class AlertService {
     constructor() {
         this.checkInterval = parseInt(process.env.ALERT_CHECK_INTERVAL) || 60000; // Default to 1 minute
         this.redis = null;
         this.lastCheck = {};
+        this.walletBalanceCache = {}; // Store previous balance data for comparison
     }
 
     async initialize(redisClient) {
@@ -62,7 +65,11 @@ class AlertService {
                         // Check threshold for each chat
                         for (const chatId of alertChats) {
                             const threshold = await this.redis.get(`threshold:${chatId}`) || 10000;
-                            if (tx.usdAmount >= threshold) {
+                            
+                            // Check if whale alerts are enabled for this chat
+                            const hasWhaleAlerts = await this.redis.sIsMember(`alerts:${chatId}`, 'whale');
+                            
+                            if (hasWhaleAlerts && tx.usdAmount >= threshold) {
                                 await this.sendWhaleAlert(bot, tx, chatId);
                             }
                         }
@@ -80,26 +87,106 @@ class AlertService {
         if (!this.redis?.isReady) return;
         
         try {
-            const alertChats = await this.redis.sMembers('alert_enabled_chats');
-            if (!alertChats.length) return;
-
-            for (const chatId of alertChats) {
-                const wallets = await this.redis.sMembers(`wallets:${chatId}`);
+            // Get all tracked wallets
+            const trackedWallets = await this.redis.sMembers('tracked_wallets');
+            if (!trackedWallets.length) return;
+            
+            for (const wallet of trackedWallets) {
+                // Rate limit checks per wallet
+                if (this.lastCheck[wallet] && (Date.now() - this.lastCheck[wallet] < 300000)) {
+                    continue; // Skip if checked in last 5 minutes
+                }
+                this.lastCheck[wallet] = Date.now();
                 
-                for (const wallet of wallets) {
-                    // Rate limit checks per wallet
-                    if (this.lastCheck[wallet] && (Date.now() - this.lastCheck[wallet] < 300000)) {
-                        continue; // Skip if checked in last 5 minutes
+                // Get all users tracking this wallet
+                const userIds = await this.redis.sMembers(`wallet:${wallet}:users`);
+                if (!userIds.length) continue;
+                
+                // Get wallet token balances using the new API endpoint
+                const balanceData = await getWalletTokens(wallet, {
+                    limit: 10, // Get top 10 tokens by value
+                    sortByDesc: 'valueUsd'
+                });
+                
+                // Process the balance data into a simplified format
+                const balance = processWalletTokenBalance(balanceData);
+                
+                // Check for significant changes compared to last check
+                const prevBalance = this.walletBalanceCache[wallet] || null;
+                const hasSignificantChanges = this.detectSignificantChanges(balance, prevBalance);
+                
+                // Store the previous message signature to avoid sending duplicate messages
+                const currentMessageSignature = this.generateWalletMessageSignature(wallet, balance);
+                const previousMessageSignature = await this.redis.get(`wallet:${wallet}:last_message_signature`);
+                
+                // Update the cache with current balance
+                this.walletBalanceCache[wallet] = balance;
+                
+                // Only send alerts if there are significant changes AND the message content would be different
+                if (hasSignificantChanges && (!previousMessageSignature || previousMessageSignature !== currentMessageSignature)) {
+                    logger.info(`Significant changes detected in wallet ${wallet}, sending alerts`);
+                    
+                    // Send alert to each user tracking this wallet
+                    for (const userId of userIds) {
+                        try {
+                            // Check if the user has wallet alerts enabled
+                            const userHasWalletAlerts = await this.redis.sIsMember(`alerts:${userId}`, 'wallet');
+                            
+                            // Only send alert if user has wallet alerts enabled
+                            if (userHasWalletAlerts) {
+                                await this.sendWalletAlert(bot, wallet, balance, userId);
+                            } else {
+                                logger.info(`Skipping wallet alert for user ${userId} - wallet alerts disabled`);
+                            }
+                        } catch (error) {
+                            logger.error(`Error sending wallet alert to user ${userId}:`, error);
+                        }
                     }
-                    this.lastCheck[wallet] = Date.now();
-
-                    const balance = await vybeApi.getWalletTokenBalance(wallet);
-                    await this.sendWalletAlert(bot, wallet, balance, chatId);
+                    
+                    // Store the new message signature with a TTL of 24 hours
+                    await this.redis.set(`wallet:${wallet}:last_message_signature`, currentMessageSignature, 'EX', 86400);
+                } else if (hasSignificantChanges) {
+                    logger.info(`Changes detected in wallet ${wallet}, but message content would be the same - skipping alert`);
+                } else {
+                    logger.info(`No significant changes detected for wallet ${wallet} - skipping alert`);
                 }
             }
         } catch (error) {
             logger.error('Error checking wallet alerts:', error);
         }
+    }
+    
+    /**
+     * Detect significant changes in wallet balance
+     * 
+     * @param {Object} currentBalance - Current balance data
+     * @param {Object} previousBalance - Previous balance data
+     * @returns {boolean} - True if significant changes detected
+     */
+    detectSignificantChanges(currentBalance, previousBalance) {
+        // If no previous data, consider it a significant change
+        if (!previousBalance) return true;
+        
+        // Check for significant total value change (>5%)
+        const totalValueChange = Math.abs(currentBalance.totalValue - previousBalance.totalValue);
+        const totalValueChangePercent = previousBalance.totalValue > 0 
+            ? (totalValueChange / previousBalance.totalValue) * 100 
+            : 0;
+            
+        if (totalValueChangePercent > 5) return true;
+        
+        // Check for new tokens
+        const currentTokens = new Set(currentBalance.tokens.map(t => t.mintAddress));
+        const prevTokens = new Set(previousBalance.tokens.map(t => t.mintAddress));
+        
+        // New token appeared in the wallet
+        if ([...currentTokens].some(addr => !prevTokens.has(addr))) return true;
+        
+        // Token disappeared from the wallet
+        if ([...prevTokens].some(addr => !currentTokens.has(addr))) return true;
+        
+        // No significant changes detected
+        return false;
     }
 
     async sendWhaleAlert(bot, transaction, chatId) {
@@ -117,9 +204,9 @@ class AlertService {
                 `*Amount:* ${formatNumber(transaction.amount)} (${transaction.symbol})\n` +
                 `*USD Value:* $${formatNumber(transaction.usdAmount)}\n` +
                 `*Type:* ${transaction.type}\n` +
-                `*From:* \`${transaction.from.slice(0, 8)}...${transaction.from.slice(-8)}\`\n` +
-                `*To:* \`${transaction.to.slice(0, 8)}...${transaction.to.slice(-8)}\`\n\n` +
-                `[View Transaction 🔍](https://solscan.io/tx/${transaction.hash})`;
+                `*From:* \`${transaction.from}\`\n` +
+                `*To:* \`${transaction.to}\`\n\n` +
+                `[View Token on Vybe Alpha 🔍](https://vybe.fyi/token/${transaction.mintAddress})`;
 
             await bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
@@ -139,15 +226,32 @@ class AlertService {
                 return num.toFixed(2);
             };
 
+            // Check if we have previous data to show changes
+            const prevBalance = this.walletBalanceCache[wallet];
+            const valueChange = prevBalance 
+                ? balance.totalValue - prevBalance.totalValue 
+                : 0;
+            const valueChangePercent = prevBalance && prevBalance.totalValue > 0
+                ? (valueChange / prevBalance.totalValue) * 100
+                : 0;
+            
+            // Format the change string
+            let changeStr = '';
+            if (prevBalance) {
+                const direction = valueChange >= 0 ? '📈' : '📉';
+                changeStr = `${direction} ${valueChange >= 0 ? '+' : ''}${formatNumber(valueChange)} USD (${valueChangePercent.toFixed(2)}%)`;
+            }
+
             const message = 
                 `👀 *Wallet Activity Update*\n\n` +
-                `*Wallet:* \`${wallet.slice(0, 8)}...${wallet.slice(-8)}\`\n` +
-                `*Total Value:* $${formatNumber(balance.totalValue)}\n\n` +
-                `*Top Holdings:*\n` +
+                `*Wallet:* \`${wallet}\`\n` +
+                `*Total Value:* $${formatNumber(balance.totalValue)}\n` +
+                (changeStr ? `*Change:* ${changeStr}\n` : '') + 
+                `\n*Top Holdings:*\n` +
                 balance.tokens.slice(0, 5).map(token => 
                     `• ${token.symbol}: $${formatNumber(token.value)}`
-                ).join('\n') + '\n\n' +
-                `[View Wallet 🔍](https://solscan.io/account/${wallet})`;
+                ).join('\n') + 
+                `\n\n[View Wallet on Vybe Alpha 🔍](https://vybe.fyi/wallets/${wallet})`;
 
             await bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
@@ -155,6 +259,34 @@ class AlertService {
             });
         } catch (error) {
             logger.error('Error sending wallet alert:', error);
+        }
+    }
+
+    /**
+     * Generate a unique signature for the wallet alert message
+     * This helps avoid sending duplicate messages
+     * 
+     * @param {string} wallet - Wallet address
+     * @param {Object} balance - Wallet balance data
+     * @returns {string} - Unique message signature
+     */
+    generateWalletMessageSignature(wallet, balance) {
+        try {
+            // Include wallet address and total value
+            let signature = `${wallet}:${balance.totalValue.toFixed(2)}`;
+            
+            // Add top 5 tokens
+            if (balance.tokens && balance.tokens.length > 0) {
+                const topTokens = balance.tokens.slice(0, 5).map(token => 
+                    `${token.symbol}:${token.value.toFixed(2)}`
+                ).join(';');
+                signature += `:${topTokens}`;
+            }
+            
+            return signature;
+        } catch (error) {
+            logger.error('Error generating wallet message signature:', error);
+            return `${wallet}:${Date.now()}`; // Fallback to ensure uniqueness
         }
     }
 }

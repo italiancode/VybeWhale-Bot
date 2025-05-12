@@ -12,10 +12,11 @@ const handler = async (bot, msg) => {
 *Analysis Commands:*
 /token [ADDRESS] - Token analysis: price, holders & whale distribution
 /whale [ADDRESS] - Whale watch: View whale insights, activity & risk assessment
+/walletperformance [ADDRESS] - Analyze wallet performance, holdings & trading activity
 
 *Wallet Tracking:*
-/trackwallet [ADDRESS] - Track wallet (or use ⚡ Track buttons)
-/listwallets - View all tracked wallets
+/trackwallet [ADDRESS] - Track wallet for ongoing analysis
+/listwallets - View all tracked wallets with performance tracking options
 /untrackwallet [ADDRESS] - Stop tracking a wallet
 
 *Alert Settings:*
@@ -26,6 +27,7 @@ const handler = async (bot, msg) => {
 *Examples:*
 • /token So11111111111111111111111111111111111111112
 • /whale EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+• /walletperformance 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1
 • /trackwallet 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1
 • /setthreshold 10000
 `;

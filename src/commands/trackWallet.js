@@ -66,11 +66,12 @@ async function handleTrackWalletCommand(bot, msg) {
     const userId = msg.from.id;
 
     // Check if user has reached maximum wallet limit (e.g., 5 wallets per user)
-    const userWallets = await redisClient.client?.sMembers(`user:${userId}:wallets`) || [];
+    const userWallets =
+      (await redisClient.client?.sMembers(`user:${userId}:wallets`)) || [];
     if (userWallets.length >= 5) {
       await bot.sendMessage(
         chatId,
-        "❌ You have reached the maximum limit of 5 tracked wallets. Please remove some wallets using /removewallet before adding new ones."
+        "❌ You have reached the maximum limit of 5 tracked wallets. Please remove some wallets using /untrackwallet before adding new ones."
       );
       return;
     }
@@ -79,7 +80,7 @@ async function handleTrackWalletCommand(bot, msg) {
     const commandArgs = msg.text.split(" ");
     if (commandArgs.length > 1) {
       const walletAddress = commandArgs[1].trim();
-      
+
       // Validate Solana wallet address
       if (walletAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
         // Process the wallet address directly
@@ -158,7 +159,7 @@ async function handleWalletInput(bot, msg) {
     }
 
     await processWalletTracking(bot, chatId, userId, walletAddress);
-    
+
     // Clear user state
     stateManager.clearState(userId);
   } catch (error) {
@@ -186,12 +187,11 @@ async function processWalletTracking(bot, chatId, userId, walletAddress) {
     }
 
     // Check if wallet is already being tracked by this user
-    const userWallets = await redisClient.client.sMembers(`user:${userId}:wallets`);
+    const userWallets = await redisClient.client.sMembers(
+      `user:${userId}:wallets`
+    );
     if (userWallets.includes(walletAddress)) {
-      await bot.sendMessage(
-        chatId,
-        "⚠️ You are already tracking this wallet."
-      );
+      await bot.sendMessage(chatId, "⚠️ You are already tracking this wallet.");
       return;
     }
 
@@ -199,12 +199,13 @@ async function processWalletTracking(bot, chatId, userId, walletAddress) {
     await Promise.all([
       redisClient.client.sAdd("tracked_wallets", walletAddress),
       redisClient.client.sAdd(`user:${userId}:wallets`, walletAddress),
-      redisClient.client.sAdd(`wallet:${walletAddress}:users`, userId.toString())
+      redisClient.client.sAdd(
+        `wallet:${walletAddress}:users`,
+        userId.toString()
+      ),
     ]);
 
-    logger.info(
-      `Wallet ${walletAddress} added to tracking for user ${userId}`
-    );
+    logger.info(`Wallet ${walletAddress} added to tracking for user ${userId}`);
 
     await bot.sendMessage(
       chatId,
@@ -214,7 +215,9 @@ async function processWalletTracking(bot, chatId, userId, walletAddress) {
       { parse_mode: "Markdown" }
     );
   } catch (error) {
-    logger.error(`Error processing wallet tracking: ${error.message}`, { error });
+    logger.error(`Error processing wallet tracking: ${error.message}`, {
+      error,
+    });
     throw error;
   }
 }

@@ -15,8 +15,9 @@ const { handler: handleHelpCommand } = require('./commands/help');
 const { handleTokenInput, handleTokenCommand } = require('./commands/token');
 const { handleWalletInput, handleTrackWalletCommand } = require('./commands/trackWallet');
 const { handleWhaleInput, handleWhaleCommand } = require('./commands/whale');
-const { handleListWallets } = require('./commands/listWallets');
+const { handleListWallets, handleWalletPerformanceCallback } = require('./commands/listWallets');
 const { handleUntrackWalletCommand, handleUntrackWalletInput } = require('./commands/untrackWallet');
+const { handleWalletPerformance, handleWalletPerformanceInput } = require('./commands/walletPerformance');
 
 // Global references for the server routes to access
 let globalBot = null;
@@ -58,6 +59,7 @@ async function initializeApp() {
             { command: 'trackwallet', description: 'Track a wallet' },
             { command: 'listwallets', description: 'List tracked wallets' },
             { command: 'untrackwallet', description: 'Stop tracking a wallet' },
+            { command: 'walletperformance', description: 'Analyze wallet performance' },
             { command: 'setthreshold', description: 'Set whale alert threshold' },
             { command: 'enablealerts', description: 'Enable specific alerts' },
             { command: 'disablealerts', description: 'Disable specific alerts' }
@@ -142,6 +144,9 @@ async function initializeApp() {
                         case 'untrackwallet':
                             await handleUntrackWalletCommand(bot, msg);
                             break;
+                        case 'walletperformance':
+                            await handleWalletPerformance(bot, msg);
+                            break;
                         default:
                             // Handle unknown commands
                             await bot.sendMessage(msg.chat.id, '❌ Unknown command. Use /help to see available commands.');
@@ -164,6 +169,9 @@ async function initializeApp() {
                         case 'whale':
                             await handleWhaleInput(bot, msg);
                             break;
+                        case 'walletperformance':
+                            await handleWalletPerformanceInput(bot, msg);
+                            break;
                     }
                 }
             } catch (error) {
@@ -172,6 +180,39 @@ async function initializeApp() {
                     await bot.sendMessage(msg.chat.id, 'Sorry, something went wrong. Please try again later.');
                 } catch (sendError) {
                     logger.error('Failed to send error message to user:', sendError);
+                }
+            }
+        });
+
+        // Handle callback queries from inline keyboards
+        bot.on('callback_query', async (query) => {
+            try {
+                const data = query.data;
+                
+                // Handle wallet performance related callbacks
+                if (data.startsWith('wallet_performance_list:') || 
+                    data.startsWith('wallet_performance:') || 
+                    data === 'wallet_list_back' ||
+                    data.startsWith('wallet_period:')) {
+                    await handleWalletPerformanceCallback(bot, query);
+                    return;
+                }
+                
+                // Handle other callback types as needed
+                // ...
+                
+                // Default handler for unrecognized callbacks
+                await bot.answerCallbackQuery(query.id, {
+                    text: 'Unknown action'
+                });
+            } catch (error) {
+                logger.error('Error handling callback query:', error);
+                try {
+                    await bot.answerCallbackQuery(query.id, {
+                        text: 'Sorry, something went wrong. Please try again.'
+                    });
+                } catch (answerError) {
+                    logger.error('Failed to answer callback query:', answerError);
                 }
             }
         });
