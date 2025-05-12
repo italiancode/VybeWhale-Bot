@@ -10,7 +10,7 @@ A powerful Telegram bot that delivers real-time on-chain analytics for Solana to
 - **Wallet Performance Tracking**: Analyze any wallet's performance with detailed metrics on holdings, value changes, and trading activity
 - **Trading PnL Analysis**: Get comprehensive Profit & Loss data for any wallet including win rates, best performers, and ROI metrics
 - **Easy Wallet Tracking**: Manage and track up to 5 wallets with detailed performance analytics
-- **Vybe Alpha Integration**: Direct links to the Vybe Alpha platform for deeper analysis
+- **Alpha Vybe Integration**: Direct links to the Alpha Vybe platform for deeper analysis
 - **Smart Fallbacks**: When API timeouts occur, provides direct links to Vybe Network for detailed analysis
 - **Memory System**: Remembers your last analyzed token for quick follow-up lookups
 
