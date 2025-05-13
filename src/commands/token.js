@@ -430,10 +430,9 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
       ).toFixed(2);
       
       if (holderName === "Unknown Wallet") {
-        // If unknown wallet, show shortened address that can be copied
+        // If unknown wallet, show full address that can be copied
         const address = largestHolder.ownerAddress;
-        const shortAddr = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-        message += `• Largest Holder: \`${shortAddr}\` (${holderPercentage}%)\n`;
+        message += `• Largest Holder: \`${address}\` (${holderPercentage}%)\n`;
       } else {
         // If known wallet, just show the name
         message += `• Largest Holder: ${holderName} (${holderPercentage}%)\n`;
@@ -471,12 +470,6 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
 
   // Add Whale Watch section
   message += `\n📡 *Whale Watch:*\n• Use [/whale ${tokenInfo.mintAddress}] to see recent whale activity for this token.\n`;
-
-  // Add largest holder tracking button if available
-  // if (hasTopHolders && topHolders.length > 0) {
-  //   const largestHolderAddress = topHolders[0].ownerAddress;
-  //   message += `• Track largest holder [⚡](https://t.me/share/url?url=${encodeURIComponent(`/trackwallet ${largestHolderAddress}`)})\n`;
-  // }
 
   // Add analytics link
   message += `\n📈 *Full Analytics:*\n[View full chart on AlphaVybe 🔗](https://alpha.vybenetwork.com/tokens/${tokenInfo.mintAddress})`;

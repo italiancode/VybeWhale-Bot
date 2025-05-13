@@ -3,7 +3,10 @@ const vybeApi = require('./vybeApi');
 const logger = require('../utils/logger');
 const { getWhaleTransfers } = require('./vybeApi/whaleTransfers');
 const { getWalletTokens, processWalletTokenBalance } = require('./vybeApi/walletTokens');
-const { detectNewLowCapGems, formatNewGemAlertMessage } = require('./vybeApi/lowCapGems');
+const { detectNewLowCapGems } = require('./vybeApi/lowCapGems');
+const { formatNewGemAlertMessage } = require('../messages/gemMessages');
+const { formatWalletAlertMessage, generateWalletMessageSignature } = require('../messages/walletMessages');
+const { formatWhaleAlertMessage } = require('../messages/whaleMessages');
 
 class AlertService {
     constructor() {
@@ -119,7 +122,7 @@ class AlertService {
                 const hasSignificantChanges = this.detectSignificantChanges(balance, prevBalance);
                 
                 // Store the previous message signature to avoid sending duplicate messages
-                const currentMessageSignature = this.generateWalletMessageSignature(wallet, balance);
+                const currentMessageSignature = generateWalletMessageSignature(wallet, balance);
                 const previousMessageSignature = await this.redis.get(`wallet:${wallet}:last_message_signature`);
                 
                 // Update the cache with current balance
@@ -137,7 +140,7 @@ class AlertService {
                             
                             // Only send alert if user has wallet alerts enabled
                             if (userHasWalletAlerts) {
-                                await this.sendWalletAlert(bot, wallet, balance, userId);
+                                await this.sendWalletAlert(bot, wallet, balance, userId, prevBalance);
                             } else {
                                 logger.info(`Skipping wallet alert for user ${userId} - wallet alerts disabled`);
                             }
@@ -194,22 +197,7 @@ class AlertService {
 
     async sendWhaleAlert(bot, transaction, chatId) {
         try {
-            const formatNumber = (num) => {
-                if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
-                if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-                if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
-                return num.toFixed(2);
-            };
-
-            const message = 
-                `🐋 *Whale Alert!*\n\n` +
-                `*Token:* ${transaction.symbol || 'Unknown'}\n` +
-                `*Amount:* ${formatNumber(transaction.amount)} (${transaction.symbol})\n` +
-                `*USD Value:* $${formatNumber(transaction.usdAmount)}\n` +
-                `*Type:* ${transaction.type}\n` +
-                `*From:* \`${transaction.from}\`\n` +
-                `*To:* \`${transaction.to}\`\n\n` +
-                `[View Token on Vybe Alpha 🔍](https://vybe.fyi/token/${transaction.mintAddress})`;
+            const message = formatWhaleAlertMessage(transaction);
 
             await bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
@@ -220,41 +208,9 @@ class AlertService {
         }
     }
 
-    async sendWalletAlert(bot, wallet, balance, chatId) {
+    async sendWalletAlert(bot, wallet, balance, chatId, prevBalance = null) {
         try {
-            const formatNumber = (num) => {
-                if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
-                if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-                if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
-                return num.toFixed(2);
-            };
-
-            // Check if we have previous data to show changes
-            const prevBalance = this.walletBalanceCache[wallet];
-            const valueChange = prevBalance 
-                ? balance.totalValue - prevBalance.totalValue 
-                : 0;
-            const valueChangePercent = prevBalance && prevBalance.totalValue > 0
-                ? (valueChange / prevBalance.totalValue) * 100
-                : 0;
-            
-            // Format the change string
-            let changeStr = '';
-            if (prevBalance) {
-                const direction = valueChange >= 0 ? '📈' : '📉';
-                changeStr = `${direction} ${valueChange >= 0 ? '+' : ''}${formatNumber(valueChange)} USD (${valueChangePercent.toFixed(2)}%)`;
-            }
-
-            const message = 
-                `👀 *Wallet Activity Update*\n\n` +
-                `*Wallet:* \`${wallet}\`\n` +
-                `*Total Value:* $${formatNumber(balance.totalValue)}\n` +
-                (changeStr ? `*Change:* ${changeStr}\n` : '') + 
-                `\n*Top Holdings:*\n` +
-                balance.tokens.slice(0, 5).map(token => 
-                    `• ${token.symbol}: $${formatNumber(token.value)}`
-                ).join('\n') + 
-                `\n\n[View Wallet on Vybe Alpha 🔍](https://vybe.fyi/wallets/${wallet})`;
+            const message = formatWalletAlertMessage(wallet, balance, prevBalance);
 
             await bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
@@ -262,34 +218,6 @@ class AlertService {
             });
         } catch (error) {
             logger.error('Error sending wallet alert:', error);
-        }
-    }
-
-    /**
-     * Generate a unique signature for the wallet alert message
-     * This helps avoid sending duplicate messages
-     * 
-     * @param {string} wallet - Wallet address
-     * @param {Object} balance - Wallet balance data
-     * @returns {string} - Unique message signature
-     */
-    generateWalletMessageSignature(wallet, balance) {
-        try {
-            // Include wallet address and total value
-            let signature = `${wallet}:${balance.totalValue.toFixed(2)}`;
-            
-            // Add top 5 tokens
-            if (balance.tokens && balance.tokens.length > 0) {
-                const topTokens = balance.tokens.slice(0, 5).map(token => 
-                    `${token.symbol}:${token.value.toFixed(2)}`
-                ).join(';');
-                signature += `:${topTokens}`;
-            }
-            
-            return signature;
-        } catch (error) {
-            logger.error('Error generating wallet message signature:', error);
-            return `${wallet}:${Date.now()}`; // Fallback to ensure uniqueness
         }
     }
 

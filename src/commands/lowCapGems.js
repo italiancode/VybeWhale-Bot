@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const stateManager = require('../utils/stateManager');
-const { findLowCapGems, formatLowCapGemsMessage } = require('../services/vybeApi/lowCapGems');
+const { findLowCapGems } = require('../services/vybeApi/lowCapGems');
+const { formatLowCapGemsMessage } = require('../messages/gemMessages');
 
 /**
  * Handle the lowcap command to analyze wallet for low cap gems

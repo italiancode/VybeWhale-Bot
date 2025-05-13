@@ -86,7 +86,7 @@ async function handleUntrackWalletInput(bot, msg) {
             const isTracked = await redis.sIsMember(`user:${userId}:wallets`, walletAddress);
             
             if (!isTracked) {
-                await bot.sendMessage(chatId, `❌ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)} is not being tracked.`);
+                await bot.sendMessage(chatId, `❌ Wallet \`${walletAddress}\` is not being tracked.`, { parse_mode: "Markdown" });
             } else {
                 // Remove wallet from user's tracked wallets
                 await Promise.all([
@@ -101,7 +101,7 @@ async function handleUntrackWalletInput(bot, msg) {
                 }
 
                 logger.info(`Wallet ${walletAddress} removed from tracking for user ${userId}`);
-                await bot.sendMessage(chatId, `✅ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)} is no longer being tracked.`);
+                await bot.sendMessage(chatId, `✅ Wallet \`${walletAddress}\` is no longer being tracked.`, { parse_mode: "Markdown" });
             }
         }
 

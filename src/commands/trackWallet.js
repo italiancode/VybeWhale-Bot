@@ -209,9 +209,7 @@ async function processWalletTracking(bot, chatId, userId, walletAddress) {
 
     await bot.sendMessage(
       chatId,
-      `✅ Wallet ${walletAddress.slice(0, 8)}...${walletAddress.slice(
-        -4
-      )} is now being tracked!\n\nYou'll receive alerts when this wallet makes significant moves.\n\nUse /listwallets to see all tracked wallets.`,
+      `✅ Wallet \`${walletAddress}\` is now being tracked!\n\nYou'll receive alerts when this wallet makes significant moves.\n\nUse /listwallets to see all tracked wallets.`,
       { parse_mode: "Markdown" }
     );
   } catch (error) {

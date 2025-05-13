@@ -205,23 +205,53 @@ async function initializeApp() {
         // Handle callback queries from inline keyboards
         bot.on('callback_query', async (query) => {
             try {
+                // Make sure query data exists
+                if (!query || !query.data) {
+                    logger.error('Received callback query with no data');
+                    if (query && query.id) {
+                        await bot.answerCallbackQuery(query.id, {
+                            text: 'Invalid callback data'
+                        });
+                    }
+                    return;
+                }
+                
                 const data = query.data;
+                
+                // Debug log every callback query
+                logger.info(`Received callback query: ${data} from user ${query.from.id}`);
                 
                 // Handle wallet performance related callbacks
                 if (data.startsWith('wallet_performance_list:') || 
                     data.startsWith('wallet_performance:') || 
                     data === 'wallet_list_back' ||
                     data.startsWith('wallet_period:') ||
+                    data.startsWith('wallet_gems_list:') ||
+                    data === 'wallet_instruction' ||
                     data.startsWith('wallet_pnl:')) {
+                    logger.info(`Routing ${data} to handleWalletPerformanceCallback`);
                     await handleWalletPerformanceCallback(bot, query);
                     return;
                 }
                 
-                // Handle gem-related callbacks
-                if (data.startsWith('track_wallet:') || 
-                    data.startsWith('track_gems:') || 
-                    data.startsWith('untrack_gems:')) {
+                // Handle gem-related callbacks from the lowcap gem screen
+                if (data.startsWith('track_wallet:')) {
                     await handleGemCallbacks(bot, query);
+                    return;
+                }
+                
+                // Handle gem alert toggling from both screens
+                if (data.startsWith('track_gems:') || data.startsWith('untrack_gems:')) {
+                    const lastScreen = query.message.text || "";
+                    
+                    // Check if we're in the gem management screen
+                    if (lastScreen.includes("Low Cap Gem Alert Management")) {
+                        // Use the wallet list callback handler for the gem management screen
+                        await handleWalletPerformanceCallback(bot, query);
+                    } else {
+                        // Use gem callbacks for other screens
+                        await handleGemCallbacks(bot, query);
+                    }
                     return;
                 }
                 

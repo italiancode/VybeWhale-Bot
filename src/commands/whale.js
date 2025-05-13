@@ -259,10 +259,29 @@ function formatWhaleData(
     topHolders.forEach((holder, index) => {
       // Format wallet name/address
       const walletName = holder.ownerName || "Unknown Wallet";
-      const shortAddress = `${holder.ownerAddress.substring(
-        0,
-        4
-      )}...${holder.ownerAddress.substring(holder.ownerAddress.length - 4)}`;
+      
+      // Use full wallet address instead of shortened version
+      const walletAddress = holder.ownerAddress;
+
+      // Add track wallet button using ⚡ symbol
+      const trackCmd = `/trackwallet ${walletAddress}`;
+
+      // Create more mobile-friendly display
+      if (walletName === "Unknown Wallet") {
+        // For unknown wallets, make the address copyable
+        message += `${
+          index + 1
+        }. \`${walletAddress}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
+          trackCmd
+        )})\n`;
+      } else {
+        // For known wallets, display the name with the address
+        message += `${
+          index + 1
+        }. *${walletName}*\n\`${walletAddress}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
+          trackCmd
+        )})\n`;
+      }
 
       // Format USD value
       const usdValue = parseFloat(holder.valueUsd);
@@ -270,27 +289,7 @@ function formatWhaleData(
 
       // Format percentage
       const percentage = parseFloat(holder.percentageOfSupplyHeld).toFixed(2);
-
-      // Add track wallet button using ⚡ symbol
-      const trackCmd = `/trackwallet ${holder.ownerAddress}`;
-
-      // Create more mobile-friendly display
-      if (walletName === "Unknown Wallet") {
-        // For unknown wallets, make the address copyable
-        message += `${
-          index + 1
-        }. \`${shortAddress}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
-          trackCmd
-        )})\n`;
-      } else {
-        // For known wallets, display the name with the address
-        message += `${
-          index + 1
-        }. *${walletName}*\n\`${shortAddress}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
-          trackCmd
-        )})\n`;
-      }
-
+      
       message += `$${formattedUsdValue} (${percentage}%)\n`;
 
       // Only add a new line between entries, not after the last one
@@ -377,22 +376,16 @@ function formatWhaleData(
     const toAddress = tx.receiverAddress || tx.toAddress || tx.taker;
 
     if (fromAddress && toAddress) {
-      const shortFrom = `${fromAddress.substring(
-        0,
-        4
-      )}...${fromAddress.substring(fromAddress.length - 4)}`;
-      const shortTo = `${toAddress.substring(0, 4)}...${toAddress.substring(
-        toAddress.length - 4
-      )}`;
-        const fromTrackCmd = `/trackwallet ${fromAddress}`;
-        const toTrackCmd = `/trackwallet ${toAddress}`;
+      // Use full addresses instead of shortened versions
+      const fromTrackCmd = `/trackwallet ${fromAddress}`;
+      const toTrackCmd = `/trackwallet ${toAddress}`;
 
-        message += `📤 From: \`${shortFrom}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
-          fromTrackCmd
-        )})\n`;
-        message += `📥 To: \`${shortTo}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
-          toTrackCmd
-        )})\n`;
+      message += `📤 From: \`${fromAddress}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
+        fromTrackCmd
+      )})\n`;
+      message += `📥 To: \`${toAddress}\` [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
+        toTrackCmd
+      )})\n`;
     }
 
     // Format date in simple terms
@@ -450,18 +443,15 @@ function formatWhaleData(
 
     message += `*Risk:* ${whaleRisk}\n`;
 
-    // Add the largest holder info with copyable address if it's unknown
+    // Add the largest holder info with full copyable address
     const largestHolder = topHolders[0];
     if (
       largestHolder.ownerName === "Unknown Wallet" ||
       !largestHolder.ownerName
     ) {
       const address = largestHolder.ownerAddress;
-      const shortAddr = `${address.substring(0, 6)}...${address.substring(
-        address.length - 4
-      )}`;
       const trackCmd = `/trackwallet ${address}`;
-      message += `*Largest:* \`${shortAddr}\` (${topHolderPercentage.toFixed(
+      message += `*Largest:* \`${address}\` (${topHolderPercentage.toFixed(
         2
       )}%) [⚡ Track](https://t.me/share/url?url=${encodeURIComponent(
         trackCmd

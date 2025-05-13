@@ -10,11 +10,13 @@ A powerful Telegram bot that delivers real-time on-chain analytics for Solana to
 - **Wallet Performance Tracking**: Analyze any wallet's performance with detailed metrics on holdings, value changes, and trading activity
 - **Trading PnL Analysis**: Get comprehensive Profit & Loss data for any wallet including win rates, best performers, and ROI metrics
 - **Easy Wallet Tracking**: Manage and track up to 5 wallets with detailed performance analytics
+- **Low Cap Gem Finder**: Identify low cap tokens held by any wallet, with growth potential indicators like whale activity and holder trends
+- **Low Cap Gem Alerts**: Receive notifications when tracked wallets acquire new tokens with market caps under $10M
 - **Alpha Vybe Integration**: Direct links to the Alpha Vybe platform for deeper analysis
 - **Smart Fallbacks**: When API timeouts occur, provides direct links to Vybe Network for detailed analysis
 - **Memory System**: Remembers your last analyzed token for quick follow-up lookups
 
-> **Note:** Wallet Alert System is currently under development. Future updates will include real-time alerts for wallet transfers, significant trades, and custom notifications based on user-defined criteria.
+> **Note:** Additional Wallet Alert System features are currently under development. Future updates will include real-time alerts for wallet transfers, significant trades, and custom notifications based on user-defined criteria.
 
 ## 📱 Demo
 
@@ -110,13 +112,42 @@ Track up to 5 wallets for ongoing analysis:
 - View all tracked wallets with `/listwallets`
 - Remove wallets using `/untrackwallet [wallet_address]`
 - Analyze any tracked wallet with a single click
+- Manage gem alerts for each wallet individually
 
 <div align="center">
   <img src="./public/wallet-tracking.png" alt="Wallet Tracking Screenshot" width="500"/>
   <p><i>A screenshot of the wallet tracking interface</i></p>
 </div>
 
-> **Coming Soon:** Receive alerts for significant wallet activities like large transfers, swaps(trades), and value changes.
+### Low Cap Gem Finder
+
+Send `/lowcap [wallet_address]` to discover low cap tokens (< $10M market cap) held by a specific wallet:
+
+- Identifies tokens with potentially high growth potential
+- Provides market cap, wallet balance and token quantity
+- Shows whale activity percentages (24h change in whale holdings)
+- Displays holder trends to identify growing community interest
+- Links to AlphaVybe for deeper analytics on each token
+
+<div align="center">
+  <img src="./public/lowcap_wallet.png" alt="LowCap Wallet Command Screenshot" width="500"/>
+</div>
+
+### Low Cap Gem Alerts
+
+Get notified when tracked wallets acquire new low cap gems:
+
+- Enable gem alerts for specific wallets through the `/listwallets` menu
+- Receive notifications when tracked wallets acquire new tokens with market caps under $10M
+- Each alert includes token details, market data, whale activity, and more
+- One-click links to view detailed token information
+- Customize which wallets you want to receive gem alerts from
+
+<div align="center">
+  <p><i>Example of a low cap gem alert notification</i></p>
+</div>
+
+> **Pro Tip:** Use gem alerts to discover potential early investment opportunities by tracking active and successful wallets.
 
 ## 💻 Technical Implementation
 
@@ -137,10 +168,13 @@ Track up to 5 wallets for ongoing analysis:
 - `/trackwallet [ADDRESS]` - Start tracking a wallet address for ongoing analysis
 - `/untrackwallet [ADDRESS]` - Stop tracking a wallet address
 - `/listwallets` - View all wallets you're currently tracking with quick analysis options
+- `/lowcap [ADDRESS]` - Find low cap gems (< $10M market cap) in any wallet
 - `/config` - View and manage your current configuration
 - `/setthreshold [AMOUNT]` - Set minimum USD value for whale alerts
-- `/enablealerts [TYPE]` - Enable specific types of alerts (whale/wallet/all)
-- `/disablealerts [TYPE]` - Disable specific types of alerts (whale/wallet/all)
+- `/enablealerts [TYPE]` - Enable specific types of alerts (whale/wallet/gem/all)
+- `/disablealerts [TYPE]` - Disable specific types of alerts (whale/wallet/gem/all)
+- `/trackgemalerts [ADDRESS]` - Start receiving gem alerts for a specific wallet
+- `/untrackgemalerts [ADDRESS]` - Stop receiving gem alerts for a specific wallet
 
 ## 🏆 Project Summary
 
@@ -152,6 +186,8 @@ Key features include:
 - **Whale Monitoring**: Top holder tracking with concentration and risk metrics
 - **Wallet Performance Dashboard**: Detailed tracking of wallet value, holdings, and performance over time
 - **Trading PnL Analysis**: In-depth profit and loss metrics for trader analysis
+- **Low Cap Gem Detection**: Discover potential early-stage investment opportunities
+- **Smart Alert System**: Get notified when tracked wallets acquire new low cap tokens
 - **Alpha Integration**: Seamless links to the Vybe Alpha platform for deeper analysis
 
 Technical innovations include API optimization that dynamically adjusts request parameters based on token volume, multi-level fallback systems that ensure users always get value even when facing API limitations, and seamless integration with Vybe Network's web interface for deeper analysis.
@@ -171,7 +207,8 @@ VybeWhale Bot has significant potential in the crypto market:
 
 - **API Integration Hub**: Centralize multiple data sources
 - **Community Features**: Modular design for rapid iteration
-- **Custom Alerts**: Personalized notification system based on wallet activity (coming soon)
+- **Custom Alerts**: Personalized notification system based on wallet activity
+- **Advanced Gem Detection**: Enhanced algorithms for identifying promising tokens early
 
 ### Market Advantage
 
@@ -179,6 +216,7 @@ VybeWhale Bot has significant potential in the crypto market:
 - **User-Friendly**: Accessible to non-technical users
 - **Network Effect**: Each tracked wallet benefits the entire user base
 - **Trading Performance**: Unique PnL analysis not commonly available in other tools
+- **Early Investment Discovery**: Low cap gem detection gives users a competitive edge
 
 ## 🔗 Deployment
 
