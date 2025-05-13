@@ -12,6 +12,15 @@ async function formatConfigMessage(chatId) {
         const enabledAlerts = await redis.sMembers(`alerts:${chatId}`);
         const threshold = await redis.get(`threshold:${chatId}`);
         const trackedWallets = await redis.sMembers(`user:${chatId}:wallets`);
+        
+        // Get gem-tracked wallets
+        const gemTrackedWallets = [];
+        for (const wallet of trackedWallets) {
+            const isTrackedForGems = await redis.sIsMember(`wallet:${wallet}:gem_users`, chatId.toString());
+            if (isTrackedForGems) {
+                gemTrackedWallets.push(wallet);
+            }
+        }
 
         // Format message
         let message = '⚙️ *Current Configuration*\n\n';
@@ -23,6 +32,7 @@ async function formatConfigMessage(chatId) {
         } else {
             message += `• Whale Alerts: ${enabledAlerts.includes('whale') ? '✅' : '❌'}\n`;
             message += `• Wallet Alerts: ${enabledAlerts.includes('wallet') ? '✅' : '❌'}\n`;
+            message += `• Gem Alerts: ${enabledAlerts.includes('gem') ? '✅' : '❌'}\n`;
         }
 
         // Threshold
@@ -37,17 +47,22 @@ async function formatConfigMessage(chatId) {
             message += '• No wallets tracked\n';
         } else {
             trackedWallets.forEach((wallet, index) => {
-                message += `• ${wallet.slice(0, 8)}...${wallet.slice(-4)}\n`;
+                const gemTrackingStatus = gemTrackedWallets.includes(wallet) ? ' 💎' : '';
+                message += `• ${wallet.slice(0, 8)}...${wallet.slice(-4)}${gemTrackingStatus}\n`;
             });
+            if (gemTrackedWallets.length > 0) {
+                message += '\n_💎 = Gem alerts enabled_\n';
+            }
         }
 
         // Available Commands
         message += '\n*Configuration Commands:*\n';
         message += '• /setthreshold <amount> - Set whale alert threshold\n';
-        message += '• /enablealerts <type> - Enable alerts (whale/wallet/all)\n';
-        message += '• /disablealerts <type> - Disable alerts (whale/wallet/all)\n';
+        message += '• /enablealerts <type> - Enable alerts (whale/wallet/gem/all)\n';
+        message += '• /disablealerts <type> - Disable alerts (whale/wallet/gem/all)\n';
         message += '• /trackwallet <address> - Track a new wallet\n';
         message += '• /untrackwallet <address> - Stop tracking a wallet\n';
+        message += '• /untrackgems <address> - Stop tracking gem alerts for a wallet\n';
         message += '• /listwallets - View all tracked wallets\n';
 
         return message;

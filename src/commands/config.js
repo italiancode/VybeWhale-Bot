@@ -76,8 +76,8 @@ async function handleEnableAlerts(bot, msg, match) {
         }
 
         // Validate alert type
-        if (!['whale', 'wallet', 'all'].includes(alertType)) {
-            await bot.sendMessage(chatId, '❌ Invalid alert type. Available types: whale, wallet, all');
+        if (!['whale', 'wallet', 'gem', 'all'].includes(alertType)) {
+            await bot.sendMessage(chatId, '❌ Invalid alert type. Available types: whale, wallet, gem, all');
             return;
         }
 
@@ -88,6 +88,7 @@ async function handleEnableAlerts(bot, msg, match) {
         if (alertType === 'all') {
             await redis.sAdd(`alerts:${chatId}`, 'whale');
             await redis.sAdd(`alerts:${chatId}`, 'wallet');
+            await redis.sAdd(`alerts:${chatId}`, 'gem');
             await bot.sendMessage(chatId, '✅ All alerts have been enabled for this chat.');
         } else {
             await redis.sAdd(`alerts:${chatId}`, alertType);
@@ -120,14 +121,15 @@ async function handleDisableAlerts(bot, msg, match) {
         }
 
         // Validate alert type
-        if (!['whale', 'wallet', 'all'].includes(alertType)) {
-            await bot.sendMessage(chatId, '❌ Invalid alert type. Available types: whale, wallet, all');
+        if (!['whale', 'wallet', 'gem', 'all'].includes(alertType)) {
+            await bot.sendMessage(chatId, '❌ Invalid alert type. Available types: whale, wallet, gem, all');
             return;
         }
 
         if (alertType === 'all') {
             await redis.sRem(`alerts:${chatId}`, 'whale');
             await redis.sRem(`alerts:${chatId}`, 'wallet');
+            await redis.sRem(`alerts:${chatId}`, 'gem');
             await redis.sRem('alert_enabled_chats', chatId.toString());
             await bot.sendMessage(chatId, '✅ All alerts have been disabled for this chat.');
         } else {
@@ -168,11 +170,103 @@ async function getAlertStatus(chatId) {
     }
 }
 
+/**
+ * Track a wallet for gem alerts
+ */
+async function handleTrackGemAlerts(bot, msg, match) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const walletAddress = match[1];
+
+    try {
+        const redis = redisManager.getClient();
+        if (!redis?.isReady) {
+            await bot.sendMessage(chatId, '⚠️ Storage service is currently unavailable. Please try again later.');
+            return;
+        }
+
+        // Validate wallet address format
+        if (!walletAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
+            await bot.sendMessage(chatId, '❌ Invalid Solana wallet address format.');
+            return;
+        }
+
+        // Check if user is already following this wallet
+        const isFollowing = await redis.sIsMember(`user:${userId}:wallets`, walletAddress);
+        if (!isFollowing) {
+            await bot.sendMessage(
+                chatId,
+                `❌ You must first follow this wallet using /trackwallet ${walletAddress} before enabling gem alerts for it.`,
+                { parse_mode: 'Markdown' }
+            );
+            return;
+        }
+
+        // Add the wallet to gem alert tracking
+        await redis.sAdd('gem_alert_wallets', walletAddress);
+        await redis.sAdd(`wallet:${walletAddress}:gem_users`, chatId.toString());
+        
+        // Enable gem alerts for this chat
+        await redis.sAdd('alert_enabled_chats', chatId.toString());
+        await redis.sAdd(`alerts:${chatId}`, 'gem');
+
+        await bot.sendMessage(
+            chatId, 
+            `✅ Now tracking low cap gem alerts for wallet \`${walletAddress}\`.\n\nYou'll receive alerts when this wallet acquires new low cap tokens with promising metrics.`,
+            { parse_mode: 'Markdown' }
+        );
+        
+        logger.info(`Gem alerts enabled for wallet ${walletAddress} by user ${chatId}`);
+    } catch (error) {
+        logger.error('Error tracking gem alerts:', error);
+        await bot.sendMessage(chatId, '❌ Error setting up gem alerts. Please try again later.');
+    }
+}
+
+/**
+ * Stop tracking a wallet for gem alerts
+ */
+async function handleUntrackGemAlerts(bot, msg, match) {
+    const chatId = msg.chat.id;
+    const walletAddress = match[1];
+
+    try {
+        const redis = redisManager.getClient();
+        if (!redis?.isReady) {
+            await bot.sendMessage(chatId, '⚠️ Storage service is currently unavailable. Please try again later.');
+            return;
+        }
+
+        // Remove the user from this wallet's gem alerts
+        await redis.sRem(`wallet:${walletAddress}:gem_users`, chatId.toString());
+        
+        // Check if any users are still tracking this wallet for gems
+        const trackingUsers = await redis.sMembers(`wallet:${walletAddress}:gem_users`);
+        if (trackingUsers.length === 0) {
+            // If no users left, remove wallet from gem alert tracking
+            await redis.sRem('gem_alert_wallets', walletAddress);
+        }
+
+        await bot.sendMessage(
+            chatId, 
+            `✅ Stopped tracking low cap gem alerts for wallet \`${walletAddress}\`.`,
+            { parse_mode: 'Markdown' }
+        );
+        
+        logger.info(`Gem alerts disabled for wallet ${walletAddress} by user ${chatId}`);
+    } catch (error) {
+        logger.error('Error removing gem alerts:', error);
+        await bot.sendMessage(chatId, '❌ Error updating gem alerts. Please try again later.');
+    }
+}
+
 module.exports = {
     handleSetThreshold,
     handleAddWallet,
     handleRemoveWallet,
     handleEnableAlerts,
     handleDisableAlerts,
-    getAlertStatus
+    getAlertStatus,
+    handleTrackGemAlerts,
+    handleUntrackGemAlerts
 }; 

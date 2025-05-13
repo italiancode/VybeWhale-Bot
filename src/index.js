@@ -18,6 +18,7 @@ const { handleWhaleInput, handleWhaleCommand } = require('./commands/whale');
 const { handleListWallets, handleWalletPerformanceCallback } = require('./commands/listWallets');
 const { handleUntrackWalletCommand, handleUntrackWalletInput } = require('./commands/untrackWallet');
 const { handleWalletPerformance, handleWalletPerformanceInput } = require('./commands/walletPerformance');
+const { handleLowCapCommand, handleLowCapInput, analyzeLowCapGems } = require('./commands/lowCapGems');
 
 // Global references for the server routes to access
 let globalBot = null;
@@ -60,9 +61,11 @@ async function initializeApp() {
             { command: 'listwallets', description: 'List tracked wallets' },
             { command: 'untrackwallet', description: 'Stop tracking a wallet' },
             { command: 'walletperformance', description: 'Analyze wallet performance' },
+            { command: 'lowcap', description: 'Find low cap gems in a wallet' },
             { command: 'setthreshold', description: 'Set whale alert threshold' },
             { command: 'enablealerts', description: 'Enable specific alerts' },
-            { command: 'disablealerts', description: 'Disable specific alerts' }
+            { command: 'disablealerts', description: 'Disable specific alerts' },
+            { command: 'untrackgems', description: 'Untrack gem alerts for a wallet' }
         ]);
 
         // Handle messages with improved error handling
@@ -103,6 +106,11 @@ async function initializeApp() {
                         await config.handleDisableAlerts(bot, msg, match);
                         return;
                     }
+                    if (text.match(/^\/untrackgems\s+(.+)/)) {
+                        const match = text.match(/^\/untrackgems\s+(.+)/);
+                        await config.handleUntrackGemAlerts(bot, msg, match);
+                        return;
+                    }
 
                     // Handle commands without parameters
                     if (text === '/setthreshold') {
@@ -110,11 +118,15 @@ async function initializeApp() {
                         return;
                     }
                     if (text === '/enablealerts') {
-                        await bot.sendMessage(msg.chat.id, '❌ Please specify an alert type: whale, wallet, or all\n\nExample: /enablealerts whale');
+                        await bot.sendMessage(msg.chat.id, '❌ Please specify an alert type: whale, wallet, gem, or all\n\nExample: /enablealerts whale');
                         return;
                     }
                     if (text === '/disablealerts') {
-                        await bot.sendMessage(msg.chat.id, '❌ Please specify an alert type: whale, wallet, or all\n\nExample: /disablealerts whale');
+                        await bot.sendMessage(msg.chat.id, '❌ Please specify an alert type: whale, wallet, gem, or all\n\nExample: /disablealerts whale');
+                        return;
+                    }
+                    if (text === '/untrackgems') {
+                        await bot.sendMessage(msg.chat.id, '❌ Please provide a wallet address.\n\nExample: /untrackgems 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1');
                         return;
                     }
 
@@ -147,6 +159,9 @@ async function initializeApp() {
                         case 'walletperformance':
                             await handleWalletPerformance(bot, msg);
                             break;
+                        case 'lowcap':
+                            await handleLowCapCommand(bot, msg);
+                            break;
                         default:
                             // Handle unknown commands
                             await bot.sendMessage(msg.chat.id, '❌ Unknown command. Use /help to see available commands.');
@@ -172,6 +187,9 @@ async function initializeApp() {
                         case 'walletperformance':
                             await handleWalletPerformanceInput(bot, msg);
                             break;
+                        case 'lowcap':
+                            await handleLowCapInput(bot, msg);
+                            break;
                     }
                 }
             } catch (error) {
@@ -193,8 +211,17 @@ async function initializeApp() {
                 if (data.startsWith('wallet_performance_list:') || 
                     data.startsWith('wallet_performance:') || 
                     data === 'wallet_list_back' ||
-                    data.startsWith('wallet_period:')) {
+                    data.startsWith('wallet_period:') ||
+                    data.startsWith('wallet_pnl:')) {
                     await handleWalletPerformanceCallback(bot, query);
+                    return;
+                }
+                
+                // Handle gem-related callbacks
+                if (data.startsWith('track_wallet:') || 
+                    data.startsWith('track_gems:') || 
+                    data.startsWith('untrack_gems:')) {
+                    await handleGemCallbacks(bot, query);
                     return;
                 }
                 
@@ -629,3 +656,136 @@ function startWithRetry(maxRetries = 5, retryDelay = 30000) {
 
 // Start the application with retry mechanism
 startWithRetry();
+
+/**
+ * Handle callbacks for gem tracking and analysis
+ */
+async function handleGemCallbacks(bot, query) {
+    try {
+        const chatId = query.message.chat.id;
+        const userId = query.from.id;
+        const callbackData = query.data;
+        
+        // Extract the callback action and wallet
+        const [action, walletAddress] = callbackData.split(':');
+        
+        if (action === 'track_wallet') {
+            // Add wallet to tracking
+            const redisClient = redisManager.getClient();
+            if (!redisClient?.isReady) {
+                await bot.answerCallbackQuery(query.id, {
+                    text: '⚠️ Storage service unavailable. Try again later.'
+                });
+                return;
+            }
+            
+            // Check if user already has 5 wallets
+            const trackedWallets = await redisClient.sMembers(`user:${userId}:wallets`);
+            if (trackedWallets.length >= 5) {
+                await bot.answerCallbackQuery(query.id, {
+                    text: 'You are already tracking 5 wallets. Remove one first.',
+                    show_alert: true
+                });
+                return;
+            }
+            
+            // Add wallet to user's tracked wallets
+            await redisClient.sAdd(`user:${userId}:wallets`, walletAddress);
+            
+            await bot.answerCallbackQuery(query.id, {
+                text: `✅ Wallet added to your tracking list`
+            });
+        } else if (action === 'track_gems') {
+            const redisClient = redisManager.getClient();
+            if (!redisClient?.isReady) {
+                await bot.answerCallbackQuery(query.id, {
+                    text: '⚠️ Storage service unavailable. Try again later.'
+                });
+                return;
+            }
+            
+            // Check if user is already following this wallet
+            const isFollowing = await redisClient.sIsMember(`user:${userId}:wallets`, walletAddress);
+            if (!isFollowing) {
+                await bot.answerCallbackQuery(query.id, {
+                    text: 'You must first follow this wallet before enabling gem alerts for it.',
+                    show_alert: true
+                });
+                
+                // Edit the message to add a track wallet button
+                const message = query.message;
+                const keyboard = {
+                    inline_keyboard: [
+                        [
+                            { text: '📋 Track Wallet', callback_data: `track_wallet:${walletAddress}` }
+                        ]
+                    ]
+                };
+                
+                try {
+                    await bot.editMessageReplyMarkup(keyboard, {
+                        chat_id: chatId,
+                        message_id: message.message_id
+                    });
+                } catch (err) {
+                    logger.error('Error updating keyboard:', err);
+                }
+                
+                return;
+            }
+            
+            // Track wallet for gem alerts
+            await config.handleTrackGemAlerts(bot, {
+                chat: { id: chatId },
+                from: { id: userId }
+            }, [null, walletAddress]);
+            
+            await bot.answerCallbackQuery(query.id, {
+                text: `✅ Gem alerts enabled for this wallet`
+            });
+            
+            // Refresh the wallet performance list to update buttons
+            if (query.message && query.message.text && query.message.text.includes("Select a wallet to view performance")) {
+                // Get updated wallet list to refresh the UI
+                const { handleWalletPerformanceCallback } = require('./commands/listWallets');
+                await handleWalletPerformanceCallback(bot, {
+                    ...query,
+                    data: `wallet_performance_list:${userId}`
+                });
+            }
+        } else if (action === 'untrack_gems') {
+            const redisClient = redisManager.getClient();
+            if (!redisClient?.isReady) {
+                await bot.answerCallbackQuery(query.id, {
+                    text: '⚠️ Storage service unavailable. Try again later.'
+                });
+                return;
+            }
+            
+            // Untrack wallet for gem alerts
+            await config.handleUntrackGemAlerts(bot, {
+                chat: { id: chatId },
+                from: { id: userId }
+            }, [null, walletAddress]);
+            
+            await bot.answerCallbackQuery(query.id, {
+                text: `✅ Gem alerts disabled for this wallet`
+            });
+            
+            // Refresh the wallet performance list to update buttons
+            if (query.message && query.message.text && query.message.text.includes("Select a wallet to view performance")) {
+                // Get updated wallet list to refresh the UI
+                const { handleWalletPerformanceCallback } = require('./commands/listWallets');
+                await handleWalletPerformanceCallback(bot, {
+                    ...query,
+                    data: `wallet_performance_list:${userId}`
+                });
+            }
+        }
+    } catch (error) {
+        logger.error('Error handling gem callback:', error);
+        await bot.answerCallbackQuery(query.id, {
+            text: 'Error processing request. Please try again.'
+        });
+    }
+}

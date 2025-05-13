@@ -3,6 +3,7 @@ const vybeApi = require('./vybeApi');
 const logger = require('../utils/logger');
 const { getWhaleTransfers } = require('./vybeApi/whaleTransfers');
 const { getWalletTokens, processWalletTokenBalance } = require('./vybeApi/walletTokens');
+const { detectNewLowCapGems, formatNewGemAlertMessage } = require('./vybeApi/lowCapGems');
 
 class AlertService {
     constructor() {
@@ -10,6 +11,7 @@ class AlertService {
         this.redis = null;
         this.lastCheck = {};
         this.walletBalanceCache = {}; // Store previous balance data for comparison
+        this.walletGemsCache = {}; // Store previous low cap gems data
     }
 
     async initialize(redisClient) {
@@ -28,6 +30,7 @@ class AlertService {
                 if (this.redis?.isReady) {
                     await this.checkWhaleAlerts(bot);
                     await this.checkWalletAlerts(bot);
+                    await this.checkLowCapGemAlerts(bot);
                 }
             } catch (error) {
                 logger.error('Error in alert check:', error);
@@ -287,6 +290,68 @@ class AlertService {
         } catch (error) {
             logger.error('Error generating wallet message signature:', error);
             return `${wallet}:${Date.now()}`; // Fallback to ensure uniqueness
+        }
+    }
+
+    /**
+     * Check for new low cap gems in tracked wallets
+     */
+    async checkLowCapGemAlerts(bot) {
+        if (!this.redis?.isReady) return;
+        
+        try {
+            // Get all wallets tracked for gem alerts
+            const trackedWallets = await this.redis.sMembers('gem_alert_wallets');
+            if (!trackedWallets.length) return;
+            
+            for (const wallet of trackedWallets) {
+                // Rate limit checks per wallet
+                if (this.lastCheck[`gem_${wallet}`] && (Date.now() - this.lastCheck[`gem_${wallet}`] < 3600000)) {
+                    continue; // Skip if checked in the last hour
+                }
+                this.lastCheck[`gem_${wallet}`] = Date.now();
+                
+                // Get all users tracking this wallet for gem alerts
+                const userIds = await this.redis.sMembers(`wallet:${wallet}:gem_users`);
+                if (!userIds.length) continue;
+                
+                // Get previous gems data or initialize empty array
+                const prevGems = this.walletGemsCache[wallet] || [];
+                
+                // Check for new low cap gems
+                const newGems = await detectNewLowCapGems(wallet, prevGems);
+                
+                // Update the cache with current gems
+                if (newGems.length > 0) {
+                    // Store the combined list of previous and new gems
+                    this.walletGemsCache[wallet] = [...prevGems, ...newGems];
+                    
+                    // Send alerts for each new gem
+                    for (const gem of newGems) {
+                        const alertMessage = formatNewGemAlertMessage(wallet, gem);
+                        
+                        // Send to each user tracking this wallet's gems
+                        for (const userId of userIds) {
+                            try {
+                                // Check if the user has gem alerts enabled
+                                const userHasGemAlerts = await this.redis.sIsMember(`alerts:${userId}`, 'gem');
+                                
+                                if (userHasGemAlerts) {
+                                    await bot.sendMessage(userId, alertMessage, {
+                                        parse_mode: 'Markdown',
+                                        disable_web_page_preview: true
+                                    });
+                                    logger.info(`Sent gem alert for wallet ${wallet} to user ${userId}: ${gem.symbol}`);
+                                }
+                            } catch (error) {
+                                logger.error(`Error sending gem alert to user ${userId}:`, error);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            logger.error('Error checking low cap gem alerts:', error);
         }
     }
 }

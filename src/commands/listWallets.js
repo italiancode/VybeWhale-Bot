@@ -78,14 +78,30 @@ async function handleListWallets(bot, msg) {
             return;
         }
 
-        // Format the list of wallets with only full addresses
-        const walletList = wallets.map((wallet, index) => 
-            `${index + 1}. \`${wallet}\``
-        ).join('\n\n');
+        // Check which wallets have gem alerts enabled
+        const gemTrackedWallets = [];
+        for (const wallet of wallets) {
+            const isTrackedForGems = await redisClient.client.sIsMember(`wallet:${wallet}:gem_users`, chatId.toString());
+            if (isTrackedForGems) {
+                gemTrackedWallets.push(wallet);
+            }
+        }
 
-        const message = `📝 *Your Tracked Wallets:*\n\n${walletList}\n\n` +
-            `Total wallets: ${wallets.length}/5\n\n` +
-            `_Tap on the address to copy it_\n` +
+        // Format the list of wallets with gem alert status
+        const walletList = wallets.map((wallet, index) => {
+            const gemStatus = gemTrackedWallets.includes(wallet) ? ' 💎' : '';
+            return `${index + 1}. \`${wallet}\`${gemStatus}`;
+        }).join('\n\n');
+
+        let message = `📝 *Your Tracked Wallets:*\n\n${walletList}\n\n` +
+            `Total wallets: ${wallets.length}/5\n\n`;
+            
+        // Add gem legend if any wallet has gem alerts
+        if (gemTrackedWallets.length > 0) {
+            message += `_💎 = Gem alerts enabled_\n\n`;
+        }
+        
+        message += `_Tap on the address to copy it_\n` +
             `Use /untrackwallet to stop tracking a wallet.`;
 
         // Create an inline keyboard with "Track Performance" button
@@ -174,10 +190,20 @@ async function handleWalletPerformanceCallback(bot, query) {
                 return;
             }
             
-            // Format the list of wallets with only full addresses
-            const walletList = wallets.map((wallet, index) => 
-                `${index + 1}. \`${wallet}\``
-            ).join('\n\n');
+            // Check which wallets have gem alerts enabled
+            const gemTrackedWallets = [];
+            for (const wallet of wallets) {
+                const isTrackedForGems = await redisClient.client.sIsMember(`wallet:${wallet}:gem_users`, chatId.toString());
+                if (isTrackedForGems) {
+                    gemTrackedWallets.push(wallet);
+                }
+            }
+            
+            // Format the list of wallets with gem alert status
+            const walletList = wallets.map((wallet, index) => {
+                const gemStatus = gemTrackedWallets.includes(wallet) ? ' 💎' : '';
+                return `${index + 1}. \`${wallet}\`${gemStatus}`;
+            }).join('\n\n');
             
             // Create the "Track Performance" button again
             const inlineKeyboard = {
@@ -186,12 +212,20 @@ async function handleWalletPerformanceCallback(bot, query) {
                 ]
             };
             
+            // Create the message text with gem legend if needed
+            let messageText = `📝 *Your Tracked Wallets:*\n\n${walletList}\n\n` +
+                `Total wallets: ${wallets.length}/5\n\n`;
+                
+            if (gemTrackedWallets.length > 0) {
+                messageText += `_💎 = Gem alerts enabled_\n\n`;
+            }
+            
+            messageText += `_Tap on the address to copy it_\n` +
+                `Use /untrackwallet to stop tracking a wallet.`;
+            
             // Edit the message to show the wallet list again
             await bot.editMessageText(
-                `📝 *Your Tracked Wallets:*\n\n${walletList}\n\n` +
-                `Total wallets: ${wallets.length}/5\n\n` +
-                `_Tap on the address to copy it_\n` +
-                `Use /untrackwallet to stop tracking a wallet.`,
+                messageText,
                 {
                     chat_id: chatId,
                     message_id: query.message.message_id,
@@ -234,11 +268,32 @@ async function showWalletPerformanceList(bot, query) {
             return;
         }
         
+        // Check which wallets have gem alerts enabled
+        const gemTrackedWallets = [];
+        for (const wallet of wallets) {
+            const isTrackedForGems = await redisClient.client.sIsMember(`wallet:${wallet}:gem_users`, chatId.toString());
+            if (isTrackedForGems) {
+                gemTrackedWallets.push(wallet);
+            }
+        }
+        
         // Create buttons for each wallet
-        const walletButtons = wallets.map(wallet => [{
-            text: wallet,
-            callback_data: `wallet_performance:${wallet}`
-        }]);
+        const walletButtons = wallets.map(wallet => {
+            const gemIndicator = gemTrackedWallets.includes(wallet) ? ' 💎' : '';
+            return [{
+                text: `${wallet.slice(0, 8)}...${wallet.slice(-4)}${gemIndicator}`,
+                callback_data: `wallet_performance:${wallet}`
+            }];
+        });
+        
+        // Add gem alert toggle buttons for each wallet
+        wallets.forEach((wallet, index) => {
+            const hasGemAlerts = gemTrackedWallets.includes(wallet);
+            walletButtons.push([{
+                text: hasGemAlerts ? `❌ Remove Gem Alerts: ${wallet.slice(0, 8)}...` : `💎 Add Gem Alerts: ${wallet.slice(0, 8)}...`,
+                callback_data: hasGemAlerts ? `untrack_gems:${wallet}` : `track_gems:${wallet}`
+            }]);
+        });
         
         // Add a back button
         walletButtons.push([{
@@ -254,8 +309,12 @@ async function showWalletPerformanceList(bot, query) {
         await bot.answerCallbackQuery(query.id);
         
         // Edit the original message to show the wallet list as buttons
-        await bot.editMessageText(
-            "📊 *Select a wallet to view performance:*", {
+        let messageText = "📊 *Select a wallet to view performance:*";
+        if (gemTrackedWallets.length > 0) {
+            messageText += "\n\n_💎 = Gem alerts enabled_";
+        }
+        
+        await bot.editMessageText(messageText, {
             chat_id: chatId,
             message_id: query.message.message_id,
             parse_mode: 'Markdown',
