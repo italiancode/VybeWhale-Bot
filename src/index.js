@@ -412,6 +412,20 @@ async function initializeApp() {
             }
         }, 60000); // Check every minute
         
+        // Initialize Twitter Bot (if explicitly enabled in .env)
+        if (process.env.TWITTER_BOT_ENABLED === 'true') {
+            const twitterBot = require('./vybewhale-twitter-bot');
+            twitterBot.initializeTwitterBot().then(initialized => {
+                if (initialized) {
+                    logger.info('Twitter bot initialized and running autonomously');
+                } else {
+                    logger.info('Twitter bot initialization failed');
+                }
+            });
+        } else {
+            logger.info('Twitter bot is disabled. Set TWITTER_BOT_ENABLED=true in .env to enable it.');
+        }
+        
         // Return cleanup resources
         return {
             bot,
@@ -428,8 +442,19 @@ async function initializeApp() {
 
 // Handle application shutdown - with more graceful handling for Render
 process.on('SIGINT', async () => {
-    logger.info('Received SIGINT signal');
+    logger.info('Received SIGINT signal, shutting down...');
     try {
+        // Shutdown Twitter Bot if running
+        if (process.env.TWITTER_BOT_ENABLED === 'true') {
+            try {
+                const twitterBot = require('./vybewhale-twitter-bot');
+                twitterBot.shutdownTwitterBot();
+                logger.info('Twitter bot shutdown complete');
+            } catch (twitterError) {
+                logger.error('Error shutting down Twitter bot:', twitterError);
+            }
+        }
+        
         // When running locally, exit properly
         if (!process.env.RENDER) {
             logger.info('Shutting down gracefully...');
@@ -448,6 +473,7 @@ process.on('SIGINT', async () => {
         }
     } catch (err) {
         logger.error('Error during shutdown:', err);
+        process.exit(1);
     }
 });
 

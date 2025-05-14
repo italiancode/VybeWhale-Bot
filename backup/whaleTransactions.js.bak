@@ -21,3 +21,45 @@ async function getWhaleTransactions(mintAddress, minUsdAmount, limit = 10) {
 module.exports = {
   getWhaleTransactions,
 };
+
+
+
+## 🐦 Twitter Bot Integration
+
+VybeWhale now includes a complementary Twitter bot that automatically tweets about significant market events:
+
+### Features
+
+- **Whale Alerts**: Automatically tweets when large transactions (buys/sells) occur
+- **Price Change Alerts**: Monitors and reports significant price movements
+- **Holder Trend Analysis**: Tweets when tokens experience notable changes in holder counts
+- **New Token Alerts**: Announces when new tokens gain traction
+- **Complete Telegram Integration**: Control and monitor the Twitter bot directly from Telegram
+
+### Setup
+
+1. Create a Twitter Developer account and obtain API credentials
+2. Add the Twitter API credentials to your `.env` file:
+   ```
+   TWITTER_BOT_ENABLED=true
+   TWITTER_API_KEY=your_key
+   TWITTER_API_KEY_SECRET=your_secret
+   TWITTER_ACCESS_TOKEN=your_token
+   TWITTER_ACCESS_TOKEN_SECRET=your_token_secret
+   ```
+3. Customize monitoring settings in `.env` if desired
+4. Restart your bot to activate Twitter integration
+
+### Telegram Commands
+
+- `/twitterstatus` - View the status of the Twitter bot
+- `/twittertogglenew [token]` - Add or remove a token from the monitoring list
+- `/twittermanualtweet [token] [type]` - Manually trigger a tweet about a specific token
+  
+Available tweet types:
+- `whale` - Tweet about large whale transactions
+- `price` - Tweet about price changes
+- `holder` - Tweet about holder count changes
+- `new` - Tweet about a new token
+
+Each tweet includes a link back to your Telegram bot, helping drive new users to your primary service.

@@ -14,6 +14,7 @@
     "test:all": "npm run test && npm run test-top-holders && npm run test-low-cap-gems",
     "test:gems": "npm run test-low-cap-gems && npm run test-gems-detection",
     "test:watch": "jest --watch",
+    "twitter-test": "node src/test/twitter-bot.js",
     "// Git Commands": "--------------------Git Commands-------------------",
     "git-commit-push": "git diff-index --quiet HEAD || (git add . && git commit -m \"Something just got updated!\" --allow-empty && git push origin main)",
     "git-commit-push-force": "git add . && git commit -m \"Something just got updated!\" --no-verify --allow-empty && git push origin main --force"
@@ -25,6 +26,7 @@
     "express": "^4.18.2",
     "node-telegram-bot-api": "^0.61.0",
     "redis": "^4.6.5",
+    "twitter-api-v2": "^1.23.2",
     "winston": "^3.8.2"
   },
   "devDependencies": {
