@@ -232,16 +232,24 @@ class AlertService {
             const trackedWallets = await this.redis.sMembers('gem_alert_wallets');
             if (!trackedWallets.length) return;
             
+            logger.info(`Checking gem alerts for ${trackedWallets.length} tracked wallets`);
+            
             for (const wallet of trackedWallets) {
                 // Rate limit checks per wallet
-                if (this.lastCheck[`gem_${wallet}`] && (Date.now() - this.lastCheck[`gem_${wallet}`] < 3600000)) {
-                    continue; // Skip if checked in the last hour
+                if (this.lastCheck[`gem_${wallet}`] && (Date.now() - this.lastCheck[`gem_${wallet}`] < 1800000)) {
+                    // Skip if checked in the last 30 minutes (reduced from 1 hour)
+                    continue;
                 }
                 this.lastCheck[`gem_${wallet}`] = Date.now();
                 
                 // Get all users tracking this wallet for gem alerts
                 const userIds = await this.redis.sMembers(`wallet:${wallet}:gem_users`);
-                if (!userIds.length) continue;
+                if (!userIds.length) {
+                    logger.info(`No users tracking gems for wallet ${wallet}, skipping`);
+                    continue;
+                }
+                
+                logger.info(`Checking for new gems in wallet ${wallet} for ${userIds.length} users`);
                 
                 // Get previous gems data or initialize empty array
                 const prevGems = this.walletGemsCache[wallet] || [];
@@ -249,10 +257,21 @@ class AlertService {
                 // Check for new low cap gems
                 const newGems = await detectNewLowCapGems(wallet, prevGems);
                 
-                // Update the cache with current gems
                 if (newGems.length > 0) {
-                    // Store the combined list of previous and new gems
-                    this.walletGemsCache[wallet] = [...prevGems, ...newGems];
+                    logger.info(`Found ${newGems.length} new gems in wallet ${wallet}`);
+                    
+                    // Update the cache with current gems (use all new gems detected)
+                    if (!this.walletGemsCache[wallet]) {
+                        this.walletGemsCache[wallet] = newGems;
+                    } else {
+                        // Merge new gems with previous ones
+                        const prevMintAddresses = new Set(prevGems.map(g => g.mintAddress));
+                        for (const gem of newGems) {
+                            if (!prevMintAddresses.has(gem.mintAddress)) {
+                                this.walletGemsCache[wallet].push(gem);
+                            }
+                        }
+                    }
                     
                     // Send alerts for each new gem
                     for (const gem of newGems) {
@@ -270,12 +289,16 @@ class AlertService {
                                         disable_web_page_preview: true
                                     });
                                     logger.info(`Sent gem alert for wallet ${wallet} to user ${userId}: ${gem.symbol}`);
+                                } else {
+                                    logger.info(`User ${userId} has gem alerts disabled, skipping notification for ${gem.symbol}`);
                                 }
                             } catch (error) {
                                 logger.error(`Error sending gem alert to user ${userId}:`, error);
                             }
                         }
                     }
+                } else {
+                    logger.info(`No new gems found in wallet ${wallet}`);
                 }
             }
         } catch (error) {

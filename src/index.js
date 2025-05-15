@@ -790,11 +790,58 @@ async function handleGemCallbacks(bot, query) {
                 return;
             }
             
-            // Track wallet for gem alerts
+            // Check if gem alerts are already enabled for this wallet/user
+            const hasGemAlerts = await redisClient.sIsMember(`wallet:${walletAddress}:gem_users`, chatId.toString());
+            if (hasGemAlerts) {
+                await bot.answerCallbackQuery(query.id, {
+                    text: 'Gem alerts are already enabled for this wallet.',
+                    show_alert: true
+                });
+                return;
+            }
+            
+            logger.info(`Enabling gem alerts for wallet ${walletAddress} by user ${userId}`);
+            
+            // Track wallet for gem alerts using the config handler
             await config.handleTrackGemAlerts(bot, {
                 chat: { id: chatId },
                 from: { id: userId }
             }, [null, walletAddress]);
+            
+            // Also ensure the wallet is in the gem_alert_wallets set
+            await redisClient.sAdd('gem_alert_wallets', walletAddress);
+            
+            // Initialize the alerts cache baseline for this wallet
+            try {
+                // Import the necessary services
+                const AlertService = require('./services/alerts');
+                const { findLowCapGems } = require('./services/vybeApi/lowCapGems');
+                
+                // Create a temporary instance to access the static state
+                const alertService = new AlertService();
+                
+                // Initialize the alert service
+                if (!alertService.redis) {
+                    await alertService.initialize(redisClient);
+                }
+                
+                // Initialize the wallet gems cache for this wallet
+                if (!alertService.walletGemsCache) {
+                    alertService.walletGemsCache = {};
+                }
+                
+                // Set a timestamp to prevent immediate checks
+                alertService.lastCheck[`gem_${walletAddress}`] = Date.now();
+                
+                // Get current gems as baseline
+                const currentGems = await findLowCapGems(walletAddress);
+                alertService.walletGemsCache[walletAddress] = currentGems || [];
+                
+                logger.info(`Initialized gem baseline for wallet ${walletAddress}: ${currentGems.length} gems`);
+            } catch (cacheError) {
+                logger.error(`Error initializing gem cache: ${cacheError.message}`, { walletAddress, userId });
+                // Continue anyway, the alerts might be slightly off but will still work
+            }
             
             await bot.answerCallbackQuery(query.id, {
                 text: `✅ Gem alerts enabled for this wallet`

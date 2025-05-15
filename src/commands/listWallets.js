@@ -368,35 +368,92 @@ async function showWalletPerformanceList(bot, query) {
  */
 async function toggleGemAlerts(bot, query, walletAddress, enable) {
     const chatId = query.message.chat.id;
+    const userId = query.from.id;
     
     try {
+        logger.info(`Toggling gem alerts ${enable ? 'on' : 'off'} for wallet ${walletAddress} by user ${userId}`);
+        
         if (!redisClient.isReady) {
             await bot.answerCallbackQuery(query.id, { 
                 text: '⚠️ Storage service is currently unavailable.' 
             });
-            return;
+            return false;
         }
         
         if (enable) {
-            // Enable gem alerts for this wallet
-            await redisClient.client.sAdd(`wallet:${walletAddress}:gem_users`, chatId.toString());
+            // Enable gem alerts
+            await Promise.all([
+                // Add the wallet to gem alert tracking
+                redisClient.client.sAdd('gem_alert_wallets', walletAddress),
+                
+                // Associate this chat/user with the wallet's gem alerts
+                redisClient.client.sAdd(`wallet:${walletAddress}:gem_users`, chatId.toString()),
+                
+                // Enable gem alerts for this chat/user
+                redisClient.client.sAdd('alert_enabled_chats', chatId.toString()),
+                redisClient.client.sAdd(`alerts:${chatId}`, 'gem')
+            ]);
+            
+            // Initialize an empty cache for this wallet in the AlertService
+            // This avoids sending alerts for existing gems
+            const alertService = require('../services/alerts');
+            if (alertService && alertService.walletGemsCache) {
+                // Make sure the cache exists with empty array to prevent false positives
+                const redisManager = require('../utils/redis');
+                const alertServiceInstance = new alertService();
+                
+                // Initialize the alert service if not already done
+                if (!alertServiceInstance.redis) {
+                    await alertServiceInstance.initialize(redisManager.getClient());
+                }
+                
+                // Force a check for this wallet to establish baseline
+                const now = Date.now();
+                alertServiceInstance.lastCheck[`gem_${walletAddress}`] = now;
+                
+                // Clear the cache for this wallet to establish a baseline to compare against
+                if (!alertServiceInstance.walletGemsCache) {
+                    alertServiceInstance.walletGemsCache = {};
+                }
+                
+                // Trigger an immediate check for this wallet
+                const { findLowCapGems } = require('../services/vybeApi/lowCapGems');
+                const currentGems = await findLowCapGems(walletAddress);
+                alertServiceInstance.walletGemsCache[walletAddress] = currentGems || [];
+                
+                logger.info(`Set initial gem baseline for wallet ${walletAddress}: ${currentGems.length} gems`);
+            } else {
+                logger.warn('Alert service not available for gem cache initialization');
+            }
+            
+            // Success message
             await bot.answerCallbackQuery(query.id, { 
-                text: '💎 Gem alerts enabled for this wallet!' 
+                text: '✅ Gem alerts enabled for this wallet.' 
             });
+            return true;
         } else {
-            // Disable gem alerts for this wallet
-            await redisClient.client.sRem(`wallet:${walletAddress}:gem_users`, chatId.toString());
+            // Disable gem alerts
+            await Promise.all([
+                redisClient.client.sRem(`wallet:${walletAddress}:gem_users`, chatId.toString())
+            ]);
+            
+            // Check if any users are still tracking this wallet for gems
+            const trackingUsers = await redisClient.client.sMembers(`wallet:${walletAddress}:gem_users`);
+            if (trackingUsers.length === 0) {
+                // If no users left, remove wallet from gem alert tracking
+                await redisClient.client.sRem('gem_alert_wallets', walletAddress);
+            }
+            
+            // Success message
             await bot.answerCallbackQuery(query.id, { 
-                text: '❌ Gem alerts disabled for this wallet.' 
+                text: '✅ Gem alerts disabled for this wallet.' 
             });
+            return true;
         }
-        
-        logger.info(`${enable ? 'Enabled' : 'Disabled'} gem alerts for wallet ${walletAddress} for user ${chatId}`);
-        return true; // Return true to indicate success
     } catch (error) {
-        logger.error('Error toggling gem alerts:', error);
+        logger.error(`Error toggling gem alerts: ${error.message}`, { error });
         await bot.answerCallbackQuery(query.id, { 
-            text: '❌ Error updating gem alert settings. Please try again.' 
+            text: '❌ Error updating gem alerts. Please try again.' 
         });
         return false; // Return false to indicate failure
     }

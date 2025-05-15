@@ -202,13 +202,56 @@ async function handleTrackGemAlerts(bot, msg, match) {
             return;
         }
 
+        // Check if gem alerts are already enabled
+        const hasGemAlerts = await redis.sIsMember(`wallet:${walletAddress}:gem_users`, chatId.toString());
+        if (hasGemAlerts) {
+            await bot.sendMessage(
+                chatId,
+                '⚠️ Gem alerts are already enabled for this wallet.',
+                { parse_mode: 'Markdown' }
+            );
+            return;
+        }
+
         // Add the wallet to gem alert tracking
-        await redis.sAdd('gem_alert_wallets', walletAddress);
-        await redis.sAdd(`wallet:${walletAddress}:gem_users`, chatId.toString());
+        await Promise.all([
+            redis.sAdd('gem_alert_wallets', walletAddress),
+            redis.sAdd(`wallet:${walletAddress}:gem_users`, chatId.toString()),
+            redis.sAdd('alert_enabled_chats', chatId.toString()),
+            redis.sAdd(`alerts:${chatId}`, 'gem')
+        ]);
         
-        // Enable gem alerts for this chat
-        await redis.sAdd('alert_enabled_chats', chatId.toString());
-        await redis.sAdd(`alerts:${chatId}`, 'gem');
+        // Initialize baseline for gem detection to avoid false positives
+        try {
+            // Get required services
+            const AlertService = require('../services/alerts');
+            const { findLowCapGems } = require('../services/vybeApi/lowCapGems');
+            
+            // Create temp instance for accessing static state
+            const alertService = new AlertService();
+            
+            // Initialize service if needed
+            if (!alertService.redis) {
+                await alertService.initialize(redis);
+            }
+            
+            // Make sure cache is initialized
+            if (!alertService.walletGemsCache) {
+                alertService.walletGemsCache = {};
+            }
+            
+            // Set timestamp to prevent immediate check
+            alertService.lastCheck[`gem_${walletAddress}`] = Date.now();
+            
+            // Establish baseline of current gems
+            const currentGems = await findLowCapGems(walletAddress);
+            alertService.walletGemsCache[walletAddress] = currentGems || [];
+            
+            logger.info(`Established baseline of ${currentGems.length} gems for wallet ${walletAddress}`);
+        } catch (initError) {
+            logger.error(`Error initializing gem baseline: ${initError.message}`, { error: initError });
+            // Continue anyway - this just means the first check might include existing gems
+        }
 
         await bot.sendMessage(
             chatId, 
