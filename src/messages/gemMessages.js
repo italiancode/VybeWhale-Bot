@@ -107,7 +107,6 @@ function formatGemDetails(gem, index) {
 
   let message =
     `${index + 1}. *${tokenInfo.verifiedBadge}${gem.symbol}*\n` +
-    `   • Address: \`${gem.mintAddress}\`\n` +
     `   • Price: $${gem.price.toFixed(6)}\n`;
 
   // Always add price change section, even if it's 0%
@@ -126,6 +125,8 @@ function formatGemDetails(gem, index) {
       message += `   • ${tokenInfo.holderTrendText}\n`;
     }
   }
+
+  message += `   • Token Address: \`${gem.mintAddress}\`\n`;
 
   message += `   • [View Token Details 🔗](https://alpha.vybe.network/tokens/${gem.mintAddress})\n\n`;
 
