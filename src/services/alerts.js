@@ -19,30 +19,6 @@ class AlertService {
 
     async initialize(redisClient) {
         this.redis = redisClient;
-        
-        // Load gem caches from Redis on startup
-        if (this.redis?.isReady) {
-            try {
-                // Get all wallets tracked for gem alerts
-                const trackedWallets = await this.redis.sMembers('gem_alert_wallets');
-                
-                // Load cached gems for each wallet
-                for (const wallet of trackedWallets) {
-                    const cachedGemsJson = await this.redis.get(`wallet:${wallet}:gems_cache`);
-                    if (cachedGemsJson) {
-                        try {
-                            this.walletGemsCache[wallet] = JSON.parse(cachedGemsJson);
-                            logger.info(`Initialized gem cache for wallet ${wallet} with ${this.walletGemsCache[wallet].length} gems`);
-                        } catch (e) {
-                            logger.error(`Error parsing cached gems for wallet ${wallet} during initialization:`, e);
-                        }
-                    }
-                }
-            } catch (e) {
-                logger.error('Error loading gem caches during initialization:', e);
-            }
-        }
-        
         logger.info('Alert Service initialized');
     }
 
@@ -254,71 +230,33 @@ class AlertService {
         try {
             // Get all wallets tracked for gem alerts
             const trackedWallets = await this.redis.sMembers('gem_alert_wallets');
-            if (!trackedWallets.length) {
-                logger.debug('No wallets tracked for gem alerts');
-                return;
-            }
-            
-            logger.info(`Checking ${trackedWallets.length} wallets for new low cap gems`);
+            if (!trackedWallets.length) return;
             
             for (const wallet of trackedWallets) {
-                // Rate limit checks per wallet - reduce from 1 hour to 15 minutes
-                if (this.lastCheck[`gem_${wallet}`] && (Date.now() - this.lastCheck[`gem_${wallet}`] < 900000)) {
-                    logger.debug(`Skipping wallet ${wallet} - checked recently`);
-                    continue; // Skip if checked in the last 15 minutes (was 1 hour)
+                // Rate limit checks per wallet
+                if (this.lastCheck[`gem_${wallet}`] && (Date.now() - this.lastCheck[`gem_${wallet}`] < 3600000)) {
+                    continue; // Skip if checked in the last hour
                 }
                 this.lastCheck[`gem_${wallet}`] = Date.now();
                 
                 // Get all users tracking this wallet for gem alerts
                 const userIds = await this.redis.sMembers(`wallet:${wallet}:gem_users`);
-                if (!userIds.length) {
-                    logger.debug(`No users tracking wallet ${wallet} for gem alerts`);
-                    continue;
-                }
+                if (!userIds.length) continue;
                 
-                logger.info(`Checking wallet ${wallet} for new gems - tracked by ${userIds.length} users`);
-                
-                // Try to get previously cached gems from Redis first
-                let prevGems = [];
-                const cachedGemsJson = await this.redis.get(`wallet:${wallet}:gems_cache`);
-                
-                if (cachedGemsJson) {
-                    try {
-                        prevGems = JSON.parse(cachedGemsJson);
-                        logger.info(`Loaded ${prevGems.length} previous gems for wallet ${wallet} from Redis`);
-                    } catch (e) {
-                        logger.error(`Error parsing cached gems for wallet ${wallet}:`, e);
-                    }
-                } else {
-                    // Fallback to in-memory cache
-                    prevGems = this.walletGemsCache[wallet] || [];
-                    logger.info(`Using in-memory cache with ${prevGems.length} gems for wallet ${wallet}`);
-                }
+                // Get previous gems data or initialize empty array
+                const prevGems = this.walletGemsCache[wallet] || [];
                 
                 // Check for new low cap gems
                 const newGems = await detectNewLowCapGems(wallet, prevGems);
-                logger.info(`Found ${newGems.length} new gems for wallet ${wallet}`);
                 
-                // Update the cache with current gems - both in memory and Redis
+                // Update the cache with current gems
                 if (newGems.length > 0) {
-                    // Combine the previous and new gems
-                    const allGems = [...prevGems, ...newGems];
-                    
-                    // Update in-memory cache
-                    this.walletGemsCache[wallet] = allGems;
-                    
-                    // Update Redis cache with 24-hour expiry
-                    try {
-                        await this.redis.set(`wallet:${wallet}:gems_cache`, JSON.stringify(allGems), 'EX', 86400);
-                        logger.info(`Updated Redis cache for wallet ${wallet} with ${allGems.length} gems`);
-                    } catch (e) {
-                        logger.error(`Error storing gems cache in Redis for wallet ${wallet}:`, e);
-                    }
+                    // Store the combined list of previous and new gems
+                    this.walletGemsCache[wallet] = [...prevGems, ...newGems];
                     
                     // Send alerts for each new gem
                     for (const gem of newGems) {
                         const alertMessage = formatNewGemAlertMessage(wallet, gem);
-                        logger.info(`Prepared alert for new gem ${gem.symbol} in wallet ${wallet}`);
                         
                         // Send to each user tracking this wallet's gems
                         for (const userId of userIds) {
@@ -332,8 +270,6 @@ class AlertService {
                                         disable_web_page_preview: true
                                     });
                                     logger.info(`Sent gem alert for wallet ${wallet} to user ${userId}: ${gem.symbol}`);
-                                } else {
-                                    logger.info(`User ${userId} has gem alerts disabled - skipping notification for ${gem.symbol}`);
                                 }
                             } catch (error) {
                                 logger.error(`Error sending gem alert to user ${userId}:`, error);
@@ -348,4 +284,4 @@ class AlertService {
     }
 }
 
-module.exports = AlertService;
+module.exports = AlertService; 
