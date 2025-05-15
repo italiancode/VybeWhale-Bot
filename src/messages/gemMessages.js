@@ -164,8 +164,8 @@ function formatLowCapGemsMessage(walletAddress, gems) {
       text:
         `🔍 *LOW CAP GEMS HELD BY WALLET ${shortenedAddress}*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `No low cap tokens (< $10M market cap) found in this wallet's holdings.\n\n` +
-        `Try using the /whale command to find trending tokens instead.`,
+        `No low cap tokens (< $10M market cap) found in this wallet's holdings.\n\n`,
+
       isEmpty: true,
       keyboard: {
         inline_keyboard: [
