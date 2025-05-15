@@ -8,6 +8,7 @@ const redisManager = require('./utils/redis');
 const AlertService = require('./services/alerts');
 const config = require('./commands/config');
 const { handleConfigCommand } = require('./commands/configView');
+const { handleForceGemCheck } = require('./commands/forceCheck');
 
 // Import command handlers
 const { handler: handleStartCommand } = require('./commands/start');
@@ -65,7 +66,8 @@ async function initializeApp() {
             { command: 'setthreshold', description: 'Set whale alert threshold' },
             { command: 'enablealerts', description: 'Enable specific alerts' },
             { command: 'disablealerts', description: 'Disable specific alerts' },
-            { command: 'untrackgems', description: 'Untrack gem alerts for a wallet' }
+            { command: 'untrackgems', description: 'Untrack gem alerts for a wallet' },
+            { command: 'forcegem', description: 'Force a gem check' }
         ]);
 
         // Handle messages with improved error handling
@@ -111,6 +113,11 @@ async function initializeApp() {
                         await config.handleUntrackGemAlerts(bot, msg, match);
                         return;
                     }
+                    if (text.match(/^\/forcegem\s+(.+)/)) {
+                        const match = text.match(/^\/forcegem\s+(.+)/);
+                        await handleForceGemCheck(bot, msg, match);
+                        return;
+                    }
 
                     // Handle commands without parameters
                     if (text === '/setthreshold') {
@@ -127,6 +134,10 @@ async function initializeApp() {
                     }
                     if (text === '/untrackgems') {
                         await bot.sendMessage(msg.chat.id, '❌ Please provide a wallet address.\n\nExample: /untrackgems 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1');
+                        return;
+                    }
+                    if (text === '/forcegem') {
+                        await bot.sendMessage(msg.chat.id, '❌ Please provide a wallet address.\n\nExample: /forcegem 5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1');
                         return;
                     }
 

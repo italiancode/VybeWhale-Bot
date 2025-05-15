@@ -96,6 +96,11 @@ async function findLowCapGems(walletAddress) {
   try {
     logger.info(`Finding low cap gems in wallet ${walletAddress}`);
     
+    if (!walletAddress || typeof walletAddress !== 'string') {
+      logger.error(`Invalid wallet address provided: ${walletAddress}`);
+      return [];
+    }
+    
     // Get all tokens in wallet
     const walletTokens = await getWalletTokens(walletAddress, {
       sortByDesc: 'valueUsd',
@@ -103,49 +108,71 @@ async function findLowCapGems(walletAddress) {
     });
     
     if (!walletTokens || !walletTokens.data || !Array.isArray(walletTokens.data)) {
-      logger.warn(`No tokens found in wallet ${walletAddress}`);
+      logger.warn(`No tokens found in wallet ${walletAddress} or invalid response format`);
+      logger.debug(`getWalletTokens response:`, walletTokens);
       return [];
     }
     
+    logger.info(`Found ${walletTokens.data.length} tokens in wallet ${walletAddress}, analyzing for low cap gems`);
+    
     const lowCapGems = [];
+    let processedCount = 0;
     
     // Process each token to check if it's a low cap gem
     for (const token of walletTokens.data) {
-      // Skip tokens with very low USD value (likely dust)
-      if (parseFloat(token.valueUsd) < 10) {
-        continue;
-      }
-      
-      // Get market data for the token
-      const marketData = await getTokenMarketData(token.mintAddress);
-      
-      if (!marketData) {
-        continue;
-      }
-      
-      const marketCap = parseFloat(marketData.mcap || marketData.marketCap || 0);
-      
-      // Check if it's a low cap token
-      if (marketCap > 0 && marketCap < LOW_CAP_THRESHOLD) {
-        // Get additional data for analysis
-        const whaleActivity = await getWhaleActivity(token.mintAddress);
-        const holdersTrend = await getHoldersTrend(token.mintAddress, 7);
+      try {
+        processedCount++;
         
-        lowCapGems.push({
-          symbol: token.symbol || 'Unknown',
-          name: token.name || 'Unknown Token',
-          mintAddress: token.mintAddress,
-          marketCap: marketCap,
-          price: parseFloat(token.priceUsd || 0),
-          balance: parseFloat(token.amount || 0),
-          value: parseFloat(token.valueUsd || 0),
-          whaleActivity: whaleActivity,
-          holdersTrend: holdersTrend.trend7d || 0,
-          holderCount: holdersTrend.current || 0,
-          verified: !!token.verified
-        });
+        // Skip tokens with very low USD value (likely dust)
+        if (!token.valueUsd || parseFloat(token.valueUsd) < 10) {
+          continue;
+        }
+        
+        if (!token.mintAddress) {
+          logger.warn(`Token missing mintAddress, skipping:`, token);
+          continue;
+        }
+        
+        // Get market data for the token
+        const marketData = await getTokenMarketData(token.mintAddress);
+        
+        if (!marketData) {
+          logger.debug(`No market data available for token ${token.symbol || token.mintAddress}`);
+          continue;
+        }
+        
+        const marketCap = parseFloat(marketData.mcap || marketData.marketCap || 0);
+        
+        // Check if it's a low cap token
+        if (marketCap > 0 && marketCap < LOW_CAP_THRESHOLD) {
+          logger.info(`Found low cap gem in wallet ${walletAddress}: ${token.symbol || token.mintAddress} (Market Cap: $${marketCap.toLocaleString()})`);
+          
+          // Get additional data for analysis
+          const whaleActivity = await getWhaleActivity(token.mintAddress);
+          const holdersTrend = await getHoldersTrend(token.mintAddress, 7);
+          
+          lowCapGems.push({
+            symbol: token.symbol || 'Unknown',
+            name: token.name || 'Unknown Token',
+            mintAddress: token.mintAddress,
+            marketCap: marketCap,
+            price: parseFloat(token.priceUsd || 0),
+            balance: parseFloat(token.amount || 0),
+            value: parseFloat(token.valueUsd || 0),
+            whaleActivity: whaleActivity,
+            holdersTrend: holdersTrend.trend7d || 0,
+            holderCount: holdersTrend.current || 0,
+            verified: !!token.verified
+          });
+        }
+      } catch (tokenError) {
+        logger.error(`Error processing token in wallet ${walletAddress}:`, tokenError);
+        // Continue processing other tokens
+        continue;
       }
     }
+    
+    logger.info(`Processed ${processedCount} tokens in wallet ${walletAddress}, found ${lowCapGems.length} low cap gems`);
     
     // Sort by value (highest first)
     return lowCapGems.sort((a, b) => b.value - a.value);
@@ -168,9 +195,10 @@ async function detectNewLowCapGems(walletAddress, previousGems = []) {
     // Get current low cap gems
     const currentGems = await findLowCapGems(walletAddress);
     
-    // If no previous data, return empty array (no new gems to report)
+    // If no previous data, return current gems (first-time detection)
     if (!Array.isArray(previousGems) || previousGems.length === 0) {
-      return [];
+      logger.info(`No previous gems data for wallet ${walletAddress}, returning all ${currentGems.length} current gems as new`);
+      return currentGems;
     }
     
     // Create a set of previously detected gem mint addresses
@@ -178,6 +206,8 @@ async function detectNewLowCapGems(walletAddress, previousGems = []) {
     
     // Find gems that weren't in the previous detection
     const newGems = currentGems.filter(gem => !previousMints.has(gem.mintAddress));
+    
+    logger.info(`Found ${newGems.length} new gems in wallet ${walletAddress}`);
     
     return newGems;
   } catch (error) {
