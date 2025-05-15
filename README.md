@@ -125,8 +125,9 @@ Send `/lowcap [wallet_address]` to discover low cap tokens (< $10M market cap) h
 
 - Identifies tokens with potentially high growth potential
 - Provides market cap, wallet balance and token quantity
-- Shows whale activity percentages (24h change in whale holdings)
+- Shows price trends (24h and 7d changes)
 - Displays holder trends to identify growing community interest
+- Shows whale activity percentages (24h change in whale holdings)
 - Links to AlphaVybe for deeper analytics on each token
 
 <div align="center">
@@ -139,7 +140,7 @@ Get notified when tracked wallets acquire new low cap gems:
 
 - Enable gem alerts for specific wallets through the `/listwallets` menu
 - Receive notifications when tracked wallets acquire new tokens with market caps under $10M
-- Each alert includes token details, market data, whale activity, and more
+- Each alert includes token details, market data, price trends (24h and 7d), holder trends, and more
 - One-click links to view detailed token information
 - Customize which wallets you want to receive gem alerts from
 

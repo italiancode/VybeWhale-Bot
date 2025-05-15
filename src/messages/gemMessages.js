@@ -29,16 +29,6 @@ function getPriceEmoji(priceChange) {
 }
 
 /**
- * Get emoji for trend indicator
- * @param {number|null} trend - Trend value
- * @returns {string} Trend emoji
- */
-function getTrendEmoji(trend) {
-  if (trend === null || trend === undefined) return "⚪";
-  return trend >= 0 ? "🟢" : "🔴";
-}
-
-/**
  * Format percentage with sign and decimal places
  * @param {number} value - Percentage value
  * @param {number} decimals - Number of decimal places
@@ -71,28 +61,42 @@ function formatTokenInfo(gem) {
     priceChangeText = `24h Change: ↔️ 0.0%`;
   }
 
+  // 7d price change text
+  let priceChange7dText = "";
+  if (typeof gem.priceChange7d === "number") {
+    const priceEmoji7d = getPriceEmoji(gem.priceChange7d);
+    priceChange7dText = `7d Change: ${priceEmoji7d} ${formatPercentage(
+      gem.priceChange7d,
+      1
+    )}`;
+  }
+
+  // Format holder trend if available
+  let holderTrendText = "";
+  if (typeof gem.holdersTrend === "number") {
+    const trendEmoji = getPriceEmoji(gem.holdersTrend);
+    holderTrendText = `Holder Trend: ${trendEmoji} ${formatPercentage(
+      gem.holdersTrend,
+      1
+    )}`;
+  }
+
   // Add holder information if available
   let formattedHolderCount = "";
-  let holderTrendText = "";
 
   if (gem.holders) {
     formattedHolderCount = gem.holders.toLocaleString();
-
-    if (gem.holderChange24h) {
-      const trendEmoji = getTrendEmoji(gem.holderChange24h);
-      holderTrendText = `Holder Growth: ${trendEmoji} ${formatPercentage(
-        gem.holderChange24h,
-        1
-      )}`;
-    }
+  } else if (gem.holderCount) {
+    formattedHolderCount = gem.holderCount.toLocaleString();
   }
 
   return {
     verifiedBadge,
     priceEmoji,
     priceChangeText,
-    formattedHolderCount,
+    priceChange7dText,
     holderTrendText,
+    formattedHolderCount,
   };
 }
 
@@ -111,6 +115,11 @@ function formatGemDetails(gem, index) {
 
   // Always add price change section, even if it's 0%
   message += `   • ${tokenInfo.priceChangeText}\n`;
+  
+  // Add 7d price change if available
+  if (tokenInfo.priceChange7dText) {
+    message += `   • ${tokenInfo.priceChange7dText}\n`;
+  }
 
   message +=
     `   • Market Cap: ${formatUSD(gem.marketCap)}\n` +
@@ -121,9 +130,11 @@ function formatGemDetails(gem, index) {
   // Add holder information if available
   if (tokenInfo.formattedHolderCount) {
     message += `   • Holders: ${tokenInfo.formattedHolderCount}\n`;
-    if (tokenInfo.holderTrendText) {
-      message += `   • ${tokenInfo.holderTrendText}\n`;
-    }
+  }
+  
+  // Add holder trend information if available
+  if (tokenInfo.holderTrendText) {
+    message += `   • ${tokenInfo.holderTrendText}\n`;
   }
 
   message += `   • Token Address: \`${gem.mintAddress}\`\n`;
@@ -217,6 +228,12 @@ function formatLowCapGemsMessage(walletAddress, gems) {
   // Add note about detailed analysis
   message += `For detailed token analysis, use the /token command with any token address.\n\n`;
 
+  // Add tracking options
+  message += `⚡️ *Track This Wallet*:\n`;
+  message += `• /trackwallet ${walletAddress} - Monitor all wallet activity\n`;
+  message += `• /trackgems ${walletAddress} - Get alerts for new gems\n\n`;
+  message += `Wallet address: \`${walletAddress}\``;
+
   // Create inline keyboard with tracking buttons
   const inlineKeyboard = {
     inline_keyboard: [
@@ -272,15 +289,22 @@ function formatNewGemAlertMessage(walletAddress, gem) {
 
   // Always add price change section
   message += `• ${tokenInfo.priceChangeText}\n`;
+  
+  // Add 7d price change if available
+  if (tokenInfo.priceChange7dText) {
+    message += `• ${tokenInfo.priceChange7dText}\n`;
+  }
 
   message += `• Market Cap: ${formatUSD(gem.marketCap)}\n`;
 
   // Add holder information if available
   if (tokenInfo.formattedHolderCount) {
     message += `• Holders: ${tokenInfo.formattedHolderCount}\n`;
-    if (tokenInfo.holderTrendText) {
-      message += `• ${tokenInfo.holderTrendText}\n`;
-    }
+  }
+  
+  // Add holder trend information if available
+  if (tokenInfo.holderTrendText) {
+    message += `• ${tokenInfo.holderTrendText}\n`;
   }
 
   message +=
