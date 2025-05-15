@@ -275,7 +275,7 @@ class AlertService {
                     
                     // Send alerts for each new gem
                     for (const gem of newGems) {
-                        const alertMessage = formatNewGemAlertMessage(wallet, gem);
+                        const messageData = formatNewGemAlertMessage(wallet, gem);
                         
                         // Send to each user tracking this wallet's gems
                         for (const userId of userIds) {
@@ -284,9 +284,10 @@ class AlertService {
                                 const userHasGemAlerts = await this.redis.sIsMember(`alerts:${userId}`, 'gem');
                                 
                                 if (userHasGemAlerts) {
-                                    await bot.sendMessage(userId, alertMessage, {
+                                    await bot.sendMessage(userId, messageData.text, {
                                         parse_mode: 'Markdown',
-                                        disable_web_page_preview: true
+                                        disable_web_page_preview: true,
+                                        reply_markup: messageData.keyboard
                                     });
                                     logger.info(`Sent gem alert for wallet ${wallet} to user ${userId}: ${gem.symbol}`);
                                 } else {
