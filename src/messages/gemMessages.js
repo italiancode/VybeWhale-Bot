@@ -110,7 +110,8 @@ function formatGemDetails(gem, index) {
     `   • Holders: ${tokenInfo.formattedHolderCount}\n` +
     `   • ${tokenInfo.holderTrendText}\n` +
     `   • ${tokenInfo.whaleActivityText}\n` +
-    `   • [View Token Details](https://alpha.vybe.network/tokens/${gem.mintAddress})\n\n`;
+    `   • Token Address: \`${gem.mintAddress}\`\n` +
+    `   • [View Token Details 🔗](https://alpha.vybe.network/tokens/${gem.mintAddress})\n\n`;
     
   return message;
 }
@@ -166,7 +167,13 @@ function formatLowCapGemsMessage(walletAddress, gems) {
   if (gems.length > filteredGems.length) {
     message += ` (${gems.length - filteredGems.length} tokens with <$60K market cap were filtered out)`;
   }
-  message += `.\n\n⚡️ Use /trackwallet ${walletAddress} to monitor this wallet's activity!`;
+  message += `.\n\n`;
+  
+  // Add tracking options
+  message += `⚡️ *Track This Wallet*:\n`;
+  message += `• /trackwallet ${walletAddress} - Monitor all activity\n`;
+  message += `• /trackgems ${walletAddress} - Get alerts on new gem acquisitions\n\n`;
+  message += `Wallet address: \`${walletAddress}\``;
   
   return {
     text: message,
@@ -203,8 +210,10 @@ function formatNewGemAlertMessage(walletAddress, gem) {
              `• Holders: ${tokenInfo.formattedHolderCount}\n` +
              `• ${tokenInfo.holderTrendText}\n` +
              `• ${tokenInfo.whaleActivityText}\n` +
+             `• Token Address: \`${gem.mintAddress}\`\n` +
              `━━━━━━━━━━━━━━━━━━━━━━\n` +
-             `• [View Token Details 🔗](https://alpha.vybe.network/tokens/${gem.mintAddress})`;
+             `• [View Token Details 🔗](https://alpha.vybe.network/tokens/${gem.mintAddress})\n\n` +
+             `Wallet address: \`${walletAddress}\``;
   
   return message;
 }
