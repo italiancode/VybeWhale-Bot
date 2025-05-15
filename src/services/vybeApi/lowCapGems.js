@@ -13,9 +13,6 @@ const LOW_CAP_THRESHOLD = 10000000; // $10M
 const tokenMarketCache = new Map();
 const tokenCacheTTL = 15 * 60 * 1000; // 15 minutes cache
 
-// Direct reference to formatLowCapGemsMessage from commands/lowCapGems.js
-const lowCapGemsModule = require('../../commands/lowCapGems');
-
 /**
  * Fetch token data including market cap information
  * with caching to improve performance
@@ -258,26 +255,20 @@ async function findLowCapGems(walletAddress, progressCallback = null) {
 }
 
 /**
- * Detect new low cap gems in a wallet since the last scan
+ * Detect newly acquired low cap gems by comparing current and previous wallet contents
  * @param {string} walletAddress - Wallet address to analyze
- * @param {Array} previousGems - Previously found gems for comparison
- * @returns {Promise<Array>} Array of newly found low cap gems with analysis
+ * @param {Array} previousGems - Previously detected gems
+ * @returns {Promise<Array>} Array of newly acquired low cap gems
  */
 async function detectNewLowCapGems(walletAddress, previousGems = []) {
   try {
     logger.info(`Detecting new low cap gems in wallet ${walletAddress}`);
     
-    // If no previous data, return empty array (no new gems to report)
-    if (!Array.isArray(previousGems)) {
-      logger.warn(`Invalid previousGems parameter, expected array but got ${typeof previousGems}`);
-      previousGems = [];
-    }
-    
     // Get current low cap gems
     const currentGems = await findLowCapGems(walletAddress);
     
     // If no previous data, return empty array (no new gems to report)
-    if (previousGems.length === 0) {
+    if (!Array.isArray(previousGems) || previousGems.length === 0) {
       return [];
     }
     
@@ -286,16 +277,6 @@ async function detectNewLowCapGems(walletAddress, previousGems = []) {
     
     // Find gems that weren't in the previous detection
     const newGems = currentGems.filter(gem => !previousMints.has(gem.mintAddress));
-    
-    if (newGems.length > 0) {
-      logger.info(`Found ${newGems.length} new low cap gems in wallet ${walletAddress}`);
-      
-      // For each new gem, prepare alert messages
-      newGems.forEach(gem => {
-        // Pre-generate the message format to ensure we can send it properly
-        gem.alertMessage = lowCapGemsModule.formatNewGemAlertMessage(walletAddress, gem);
-      });
-    }
     
     return newGems;
   } catch (error) {

@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 const { getWhaleTransfers } = require('./vybeApi/whaleTransfers');
 const { getWalletTokens, processWalletTokenBalance } = require('./vybeApi/walletTokens');
 const { detectNewLowCapGems } = require('./vybeApi/lowCapGems');
-const { formatNewGemAlertMessage } = require('../commands/lowCapGems');
+const { formatNewGemAlertMessage } = require('../messages/gemMessages');
 const { formatWalletAlertMessage, generateWalletMessageSignature } = require('../messages/walletMessages');
 const { formatWhaleAlertMessage } = require('../messages/whaleMessages');
 

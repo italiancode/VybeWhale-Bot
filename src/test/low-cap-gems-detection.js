@@ -1,7 +1,7 @@
 require('dotenv').config();
 const vybeApi = require('@api/vybe-api');
 const { findLowCapGems, detectNewLowCapGems } = require('../services/vybeApi/lowCapGems');
-const { formatNewGemAlertMessage } = require('../commands/lowCapGems');
+const { formatNewGemAlertMessage } = require('../messages/gemMessages');
 
 // Initialize the API
 vybeApi.auth(process.env.VYBE_API_KEY);
