@@ -1,7 +1,7 @@
 const logger = require('../utils/logger');
 const stateManager = require('../utils/stateManager');
 const { findLowCapGems } = require('../services/vybeApi/lowCapGems');
-const { formatLowCapGemsMessage, formatUSD } = require('../messages/gemMessages');
+const { formatLowCapGemsMessage } = require('../messages/gemMessages');
 
 /**
  * Handle the lowcap command to analyze wallet for low cap gems
@@ -193,30 +193,49 @@ async function analyzeLowCapGems(bot, chatId, walletAddress, userId) {
     analysisState.status = 'completed';
     clearInterval(progressInterval);
     
+    // Format the message
+    const message = formatLowCapGemsMessage(walletAddress, gems);
+    
+    // Track user relationships with the wallet for customized UI
+    const redisManager = require('../utils/redis');
+    const redisClient = redisManager.getClient();
+    
+    let isFollowing = false;
+    let hasGemAlerts = false;
+    
+    if (redisClient?.isReady) {
+      isFollowing = await redisClient.sIsMember(`user:${userId}:wallets`, walletAddress);
+      hasGemAlerts = await redisClient.sIsMember(`wallet:${walletAddress}:gem_users`, chatId.toString());
+    }
+    
+    // Always use the keyboard from the message formatter - this ensures buttons are visible
     try {
-      // First delete the processing message
-      await bot.deleteMessage(chatId, processingMsg.message_id);
-      
-      // Then send the full gems message with proper buttons
-      await sendLowCapGemsMessage(bot, chatId, walletAddress, gems);
+      // Edit the processing message with results
+      await bot.editMessageText(message.text, {
+        chat_id: chatId,
+        message_id: processingMsg.message_id,
+        parse_mode: "Markdown",
+        disable_web_page_preview: true,
+        reply_markup: message.keyboard // Use the keyboard from formatLowCapGemsMessage
+      });
       
       logger.info(`Sent low cap gems analysis for ${walletAddress} to chat ${chatId} (found ${gems.length} gems)`);
-    } catch (sendError) {
-      // If sending fails (user may have left chat), log the error
-      logger.error(`Failed to send results to chat ${chatId} for analysis ${analysisId}:`, sendError);
+    } catch (editError) {
+      // If editing fails (user may have left chat), send as a new message
+      logger.warn(`Could not edit message for analysis ${analysisId}, sending as new message: ${editError.message}`);
       
       try {
-        // Try to edit the original message as a fallback
-        const messageData = formatLowCapGemsMessage(walletAddress, gems);
-        await bot.editMessageText(messageData.text, {
-          chat_id: chatId,
-          message_id: processingMsg.message_id,
-          parse_mode: "Markdown",
-          disable_web_page_preview: true,
-          reply_markup: messageData.keyboard
-        });
-      } catch (editError) {
-        logger.error(`Failed to edit message for analysis ${analysisId}:`, editError);
+        // Send as a new message (notification)
+        await bot.sendMessage(chatId, 
+          `🔍 *Low Cap Gems Analysis Completed*\n\n${message.text}`, 
+          {
+            parse_mode: "Markdown",
+            disable_web_page_preview: true,
+            reply_markup: message.keyboard // Use the keyboard from formatLowCapGemsMessage
+          }
+        );
+      } catch (sendError) {
+        logger.error(`Failed to send results to chat ${chatId} for analysis ${analysisId}:`, sendError);
       }
     }
   } catch (error) {
@@ -232,36 +251,8 @@ async function analyzeLowCapGems(bot, chatId, walletAddress, userId) {
   }
 }
 
-async function sendLowCapGemsMessage(bot, chatId, walletAddress, gems) {
-  try {
-    const messageData = formatLowCapGemsMessage(walletAddress, gems);
-    
-    // If no gems were found, just send the empty message
-    if (messageData.isEmpty) {
-      await bot.sendMessage(chatId, messageData.text, {
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true,
-        reply_markup: messageData.keyboard // Use the keyboard from the message data
-      });
-      return;
-    }
-    
-    // Send the message with gems
-    await bot.sendMessage(chatId, messageData.text, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      reply_markup: messageData.keyboard // Use the keyboard from the message data
-    });
-    
-    logger.info(`Sent low cap gems message for wallet ${walletAddress} with ${gems.length} gems`);
-  } catch (error) {
-    logger.error('Error sending low cap gems message:', error);
-  }
-}
-
 module.exports = {
   handleLowCapCommand,
   handleLowCapInput,
-  analyzeLowCapGems,
-  sendLowCapGemsMessage
+  analyzeLowCapGems
 }; 

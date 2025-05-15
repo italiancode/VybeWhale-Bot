@@ -1,16 +1,18 @@
 /**
  * Message formatting functions for low cap gems
+ * Enhanced for professional presentation and improved UX
  */
 
 // Helper functions
 /**
- * Format a USD value with appropriate suffix (K, M)
+ * Format a USD value with appropriate suffix (K, M, B)
  * @param {number} value - USD value to format
  * @returns {string} Formatted USD string
  */
 function formatUSD(value) {
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+  if (value >= 1000000000) return `$${(value / 1000000000).toFixed(2)}B`;
+  if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(2)}K`;
   return `$${value.toFixed(2)}`;
 }
 
@@ -20,127 +22,120 @@ function formatUSD(value) {
  * @returns {string} Appropriate emoji
  */
 function getPriceEmoji(priceChange) {
-  if (priceChange === null || priceChange === undefined) return "⚪";
+  if (priceChange === null || priceChange === undefined) return '⚪';
+  
+  // Simple green/red indicators as requested
+  if (priceChange > 0) return '🟢'; // Green circle for positive
+  if (priceChange < 0) return '🔴'; // Red circle for negative
+  return '⚪'; // White circle for unchanged
+}
 
-  // Simply use green for positive, red for negative
-  if (priceChange > 0) return "🟢";
-  if (priceChange < 0) return "🔴";
-  return "↔️"; // Flat/unchanged
+/**
+ * Get emoji for trend indicator
+ * @param {number|null} trend - Trend value
+ * @returns {string} Trend emoji
+ */
+function getTrendEmoji(trend) {
+  if (trend === null || trend === undefined) return '⚪';
+  
+  // Simple green/red indicators as requested
+  if (trend > 0) return '🟢'; // Green circle for positive
+  if (trend < 0) return '🔴'; // Red circle for negative
+  return '⚪'; // White circle for unchanged
 }
 
 /**
  * Format percentage with sign and decimal places
  * @param {number} value - Percentage value
  * @param {number} decimals - Number of decimal places
- * @returns {string} Formatted percentage
+ * @returns {string} Formatted percentage with appropriate styling
  */
 function formatPercentage(value, decimals = 2) {
   // Special case for zero
-  if (value === 0) return "0.00%";
-  return `${value > 0 ? "+" : ""}${value.toFixed(decimals)}%`;
+  if (value === 0) return '0.00%';
+  
+  // Enhanced percentage formatting
+  if (value > 0) {
+    return `+${value.toFixed(decimals)}%`; 
+  } else {
+    return `${value.toFixed(decimals)}%`;
+  }
 }
 
 /**
  * Format common token information used in multiple message types
  * @param {Object} gem - Token data
- * @returns {Object} Formatted token information
+ * @returns {Object} Formatted token information with professional styling
  */
 function formatTokenInfo(gem) {
-  const verifiedBadge = gem.verified ? "✅ " : "";
+  // Verification badge with premium look
+  const verifiedBadge = gem.verified ? '✅ ' : '';
   const priceEmoji = getPriceEmoji(gem.priceChange24h);
-
-  // Price change text - matching the token analysis style
-  let priceChangeText = "";
-  if (typeof gem.priceChange24h === "number") {
-    // Format similar to token analysis: "24h: 🟢 +5.2%"
-    priceChangeText = `24h Change: ${priceEmoji} ${formatPercentage(
-      gem.priceChange24h,
-      1
-    )}`;
+  
+  // Simple holder count formatting
+  const formattedHolderCount = gem.holderCount 
+    ? gem.holderCount >= 1000 
+      ? `${(gem.holderCount / 1000).toFixed(1)}K` 
+      : gem.holderCount.toLocaleString() 
+    : 'Unknown';
+  
+  // Format holder trends with simple indicators
+  const trend7d = gem.holdersTrend;
+  const trendEmoji = getTrendEmoji(trend7d);
+  const holderTrendText = `Holders: ${formattedHolderCount} ${trendEmoji} ${formatPercentage(trend7d)} (7D)`;
+  
+  // Simple whale activity text
+  const whaleActivityText = `Whale Activity: Coming Soon`;
+  
+  // Simple price change text
+  let priceChangeText = '';
+  if (typeof gem.priceChange24h === 'number') {
+    priceChangeText = `24h: ${priceEmoji} ${formatPercentage(gem.priceChange24h, 1)}`;
   } else {
-    priceChangeText = `24h Change: ↔️ 0.0%`;
+    priceChangeText = `24h: ⚪ 0.00%`;
   }
-
-  // 7d price change text
-  let priceChange7dText = "";
-  if (typeof gem.priceChange7d === "number") {
-    const priceEmoji7d = getPriceEmoji(gem.priceChange7d);
-    priceChange7dText = `7d Change: ${priceEmoji7d} ${formatPercentage(
-      gem.priceChange7d,
-      1
-    )}`;
-  }
-
-  // Format holder trend if available
-  let holderTrendText = "";
-  if (typeof gem.holdersTrend === "number") {
-    const trendEmoji = getPriceEmoji(gem.holdersTrend);
-    holderTrendText = `Holder Trend: ${trendEmoji} ${formatPercentage(
-      gem.holdersTrend,
-      1
-    )}`;
-  }
-
-  // Add holder information if available
-  let formattedHolderCount = "";
-
-  if (gem.holders) {
-    formattedHolderCount = gem.holders.toLocaleString();
-  } else if (gem.holderCount) {
-    formattedHolderCount = gem.holderCount.toLocaleString();
-  }
-
+    
   return {
     verifiedBadge,
     priceEmoji,
-    priceChangeText,
-    priceChange7dText,
-    holderTrendText,
     formattedHolderCount,
+    holderTrendText,
+    whaleActivityText,
+    priceChangeText
   };
 }
 
 /**
- * Format each gem with basic info
+ * Format each gem with enhanced professional info
  * @param {Object} gem - Gem data to format
  * @param {number} index - Index of gem in list
- * @returns {string} Formatted gem message
+ * @returns {string} Formatted gem message with premium styling
  */
 function formatGemDetails(gem, index) {
   const tokenInfo = formatTokenInfo(gem);
-
-  let message =
-    `${index + 1}. *${tokenInfo.verifiedBadge}${gem.symbol}*\n` +
-    `   • Price: $${gem.price.toFixed(6)}\n`;
-
-  // Always add price change section, even if it's 0%
+  
+  // Enhanced header with token symbol and badge
+  let message = `*${index + 1}. ${tokenInfo.verifiedBadge}${gem.symbol}*\n`;
+  
+  // Simple bullet point formatting
+  message += `   • Price: $${gem.price.toFixed(gem.price < 0.01 ? 8 : 6)}\n`;
   message += `   • ${tokenInfo.priceChangeText}\n`;
+  message += `   • Market Cap: ${formatUSD(gem.marketCap)}\n`;
   
-  // Add 7d price change if available
-  if (tokenInfo.priceChange7dText) {
-    message += `   • ${tokenInfo.priceChange7dText}\n`;
-  }
-
-  message +=
-    `   • Market Cap: ${formatUSD(gem.marketCap)}\n` +
-    `   • Balance: ${gem.balance.toLocaleString(undefined, {
-      maximumFractionDigits: gem.balance >= 1 ? 2 : 6,
-    })} ${gem.symbol} (${formatUSD(gem.value)})\n`;
-
-  // Add holder information if available
-  if (tokenInfo.formattedHolderCount) {
-    message += `   • Holders: ${tokenInfo.formattedHolderCount}\n`;
-  }
+  // Balance section
+  const balanceFormatted = gem.balance.toLocaleString(undefined, {
+    maximumFractionDigits: gem.balance >= 1 ? 2 : 6
+  });
+  message += `   🏦 Balance: ${balanceFormatted} ${gem.symbol} (${formatUSD(gem.value)})\n`;
   
-  // Add holder trend information if available
-  if (tokenInfo.holderTrendText) {
-    message += `   • ${tokenInfo.holderTrendText}\n`;
-  }
-
-  message += `   • Token Address: \`${gem.mintAddress}\`\n`;
-
-  message += `   • [View Token Details 🔗](https://alpha.vybe.network/tokens/${gem.mintAddress})\n\n`;
-
+  // Metrics section
+  message += `   ${tokenInfo.holderTrendText}\n`;
+  message += `   ${tokenInfo.whaleActivityText}\n`;
+  
+  // Token details with full address
+  message += `   📝 Token: \`${gem.mintAddress}\`\n`;
+  message += `   🔍 [View Analytics Dashboard](https://alpha.vybe.network/tokens/${gem.mintAddress})\n\n`;
+    
   return message;
 }
 
@@ -148,21 +143,18 @@ function formatGemDetails(gem, index) {
  * Format a message for displaying low cap gems found in a wallet
  * @param {string} walletAddress - Wallet address analyzed
  * @param {Array} gems - Low cap gems found
- * @returns {Object} Message object with text, empty message status, and inline keyboard
+ * @returns {Object} Message object with text and empty message if no gems found
  */
 function formatLowCapGemsMessage(walletAddress, gems) {
-  const shortenedAddress = `${walletAddress.slice(
-    0,
-    4
-  )}...${walletAddress.slice(-4)}`;
-
+  const shortenedAddress = `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
+  
+  // Handle case when no gems are provided
   if (!gems || gems.length === 0) {
     return {
-      text:
-        `🔍 *LOW CAP GEMS HELD BY WALLET ${shortenedAddress}*\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `No low cap tokens (< $10M market cap) found in this wallet's holdings.\n\n` +
-        `Try another wallet or use /lowcap to find trending low cap gems!`,
+      text: `🔍 *LOW CAP GEMS HELD BY WALLET ${shortenedAddress}*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `No low cap tokens (< $10M market cap) found in this wallet's holdings.\n\n` +
+            `Try using the /whale command to find trending tokens instead.`,
       isEmpty: true,
       keyboard: {
         inline_keyboard: [
@@ -171,23 +163,26 @@ function formatLowCapGemsMessage(walletAddress, gems) {
               text: "📊 View Wallet Performance",
               callback_data: `wallet_performance:${walletAddress}`,
             },
+            {
+              text: "🔍 Find Trending Tokens",
+              callback_data: `whale_command`,
+            }
           ],
         ],
       },
     };
   }
-
-  // Filter out very low market cap tokens (less than $60K)
-  const filteredGems = gems.filter((gem) => gem.marketCap >= 60000);
-
+  
+  // Filter gems with market cap >= $60K and <= $10M for better quality results
+  const filteredGems = gems.filter(gem => gem.marketCap >= 60000 && gem.marketCap <= 10000000);
+  
+  // Handle no qualifying gems found case with improved messaging
   if (filteredGems.length === 0) {
     return {
-      text:
-        `🔍 *LOW CAP GEMS HELD BY WALLET ${shortenedAddress}*\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `⚠️ All tokens in this wallet have market cap below $60K (extremely high risk).\n` +
-        `No viable low cap gems found.\n\n` +
-        `Try another wallet or use /lowcap to find trending low cap gems!`,
+      text: `⚠️ *NO QUALIFYING GEMS FOUND*\n\n` +
+            `We analyzed wallet \`${shortenedAddress}\` but couldn't find any suitable low cap gems.\n\n` +
+            `${gems.length > 0 ? `We filtered out ${gems.length} tokens with market caps less than $60K due to high risk.` : `This wallet doesn't appear to hold any tokens that match our criteria.`}\n\n` +
+            `Try using the /whale command to find trending tokens instead.`,
       isEmpty: true,
       keyboard: {
         inline_keyboard: [
@@ -196,66 +191,66 @@ function formatLowCapGemsMessage(walletAddress, gems) {
               text: "📊 View Wallet Performance",
               callback_data: `wallet_performance:${walletAddress}`,
             },
+            {
+              text: "🔍 Find Trending Tokens",
+              callback_data: `whale_command`,
+            }
           ],
         ],
       },
     };
   }
-
-  let message =
-    `🔍 *LOW CAP GEMS HELD BY WALLET ${shortenedAddress}*\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `Filtering: Market Cap $60K-$10M\n\n`;
-
+  
+  // Enhanced header with professional styling
+  let message = `💎 *LOW CAP GEM ANALYSIS* 💎\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📂 *WALLET:* \`${shortenedAddress}\`\n` +
+                `🔍 *FILTER:* $60K-$10M Market Cap\n` +
+                `📈 *RESULTS:* ${filteredGems.length} qualifying gems\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  
   // Sort gems by market cap (largest first)
   const sortedGems = filteredGems.sort((a, b) => b.marketCap - a.marketCap);
-
-  // Format each gem with basic info
+  
+  // Format each gem with enhanced info
   sortedGems.forEach((gem, i) => {
     message += formatGemDetails(gem, i);
   });
-
-  // Add total count summary
-  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `📝 *SUMMARY*: Found ${sortedGems.length} viable low cap gems`;
+  
+  // Add premium summary section
+  message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `📋 *SUMMARY*\n`;
+  message += `• Found ${sortedGems.length} viable low cap gems\n`;
   if (gems.length > filteredGems.length) {
-    message += ` (${
-      gems.length - filteredGems.length
-    } tokens with <$60K market cap were filtered out)`;
+    message += `• Filtered out ${gems.length - filteredGems.length} high-risk tokens (< $60K market cap)\n`;
   }
-  message += `.\n\n`;
-
-  // Add note about detailed analysis
-  message += `For detailed token analysis, use the /token command with any token address.\n\n`;
-
-  // Add tracking options
-  message += `⚡️ *Track This Wallet*:\n`;
-  message += `• /trackwallet ${walletAddress} - Monitor all wallet activity\n`;
-  message += `• /trackgems ${walletAddress} - Get alerts for new gems\n\n`;
-  message += `Wallet address: \`${walletAddress}\``;
-
-  // Create inline keyboard with tracking buttons
+  message += `• Analysis time: ${new Date().toISOString().split('T')[1].split('.')[0]} UTC\n\n`;
+  
+  // Add professional tip section with enhanced formatting
+  message += `💡 *PRO TIP*: Copy any token address and use /token command for in-depth analysis with price predictions and social metrics.\n\n`;
+  
+  // Create inline keyboard with enhanced tracking buttons and clear labeling
   const inlineKeyboard = {
     inline_keyboard: [
       [
         {
-          text: "📋 Track Wallet",
+          text: "📡 TRACK FULL WALLET",
           callback_data: `track_wallet:${walletAddress}`,
-        },
-        {
-          text: "💎 Track Gems Only",
-          callback_data: `track_gems:${walletAddress}`,
-        },
+        }
       ],
       [
         {
-          text: "📊 View Performance",
-          callback_data: `wallet_performance:${walletAddress}`,
+          text: "💎 TRACK GEMS ONLY",
+          callback_data: `track_gems:${walletAddress}`,
         },
+        {
+          text: "📊 VIEW PERFORMANCE",
+          callback_data: `wallet_performance:${walletAddress}`,
+        }
       ],
     ],
   };
-
+  
   return {
     text: message,
     isEmpty: false,
@@ -270,71 +265,86 @@ function formatLowCapGemsMessage(walletAddress, gems) {
  * @returns {Object} Formatted alert message with text and inline keyboard
  */
 function formatNewGemAlertMessage(walletAddress, gem) {
-  const shortenedAddress = `${walletAddress.slice(
-    0,
-    4
-  )}...${walletAddress.slice(-4)}`;
+  const shortenedAddress = `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
   const tokenInfo = formatTokenInfo(gem);
-
-  // Market cap warning for very low caps
-  const marketCapWarning =
-    gem.marketCap < 60000 ? "⚠️ *Very low market cap (high risk)*\n" : "";
-
-  let message =
-    `🚨 *NEW TOKEN ALERT*\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `Wallet: \`${shortenedAddress}\` acquired *${tokenInfo.verifiedBadge}${gem.symbol}*\n\n` +
-    `• Token Address: \`${gem.mintAddress}\`\n` +
-    `• Price: $${gem.price.toFixed(6)}\n`;
-
-  // Always add price change section
+  
+  // Risk assessment section with enhanced styling
+  let riskLevel = '';
+  let riskEmoji = '';
+  
+  if (gem.marketCap < 60000) {
+    riskLevel = 'HIGH RISK';
+    riskEmoji = '🔴';
+  } else if (gem.marketCap < 1000000) {
+    riskLevel = 'MEDIUM RISK';
+    riskEmoji = '🟠';
+  } else {
+    riskLevel = 'LOWER RISK';
+    riskEmoji = '🟢';
+  }
+  
+  const marketCapWarning = gem.marketCap < 60000 
+    ? `⚠️ *CAUTION: Very low market cap detected*\n` +
+      `This token has a market cap below $60K, which typically indicates higher volatility and risk.\n` 
+    : '';
+  
+  // Premium styled alert header
+  let message = `🚨 *NEW GEM DETECTED* 🚨\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `🔍 *WALLET:* \`${shortenedAddress}\`\n` +
+                `💎 *TOKEN:* ${tokenInfo.verifiedBadge}*${gem.symbol}*\n` +
+                `⚖️ *RISK ASSESSMENT:* ${riskEmoji} ${riskLevel}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  
+  // Simple bullet point formatting with price metrics
+  message += `\n• Price: $${gem.price.toFixed(gem.price < 0.01 ? 8 : 6)}\n`;
   message += `• ${tokenInfo.priceChangeText}\n`;
-  
-  // Add 7d price change if available
-  if (tokenInfo.priceChange7dText) {
-    message += `• ${tokenInfo.priceChange7dText}\n`;
-  }
-
   message += `• Market Cap: ${formatUSD(gem.marketCap)}\n`;
-
-  // Add holder information if available
-  if (tokenInfo.formattedHolderCount) {
-    message += `• Holders: ${tokenInfo.formattedHolderCount}\n`;
+  
+  if (marketCapWarning) {
+    message += `${marketCapWarning}\n`;
   }
   
-  // Add holder trend information if available
-  if (tokenInfo.holderTrendText) {
-    message += `• ${tokenInfo.holderTrendText}\n`;
-  }
-
-  message +=
-    `${marketCapWarning}` +
-    `• Value: ${formatUSD(gem.value)} (${gem.balance.toLocaleString(undefined, {
-      maximumFractionDigits: gem.balance >= 1 ? 2 : 6,
-    })} ${gem.symbol})\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `• [View Token Details 🔗](https://alpha.vybe.network/tokens/${gem.mintAddress})\n\n` +
-    `Use /token ${gem.mintAddress} for detailed token analysis\n\n` +
-    `Wallet address: \`${walletAddress}\``;
-
-  // Create inline keyboard with action buttons
+  // Balance information with premium formatting
+  message += `🏦 *BALANCE DETAILS*\n`;
+  message += `• Quantity: ${gem.balance.toLocaleString(undefined, {
+    maximumFractionDigits: gem.balance >= 1 ? 2 : 6
+  })} ${gem.symbol}\n`;
+  message += `• Value: ${formatUSD(gem.value)}\n\n`;
+  
+  // Additional metrics section
+  message += `📊 *TOKEN METRICS*\n`;
+  message += `• ${tokenInfo.holderTrendText}\n`;
+  message += `• ${tokenInfo.whaleActivityText}\n`;
+  message += `• Token: \`${gem.mintAddress}\`\n\n`;
+               
+  // Call to action section
+  message += `🔗 *ACTIONS*\n`;
+  message += `• [View Complete Analytics](https://alpha.vybe.network/tokens/${gem.mintAddress})\n`;
+  message += `• Use /token \`${gem.mintAddress}\` for detailed analysis\n`;
+  
+  // Create enhanced inline keyboard with prominent action buttons
   const inlineKeyboard = {
     inline_keyboard: [
       [
         {
-          text: "📊 View Token Details",
+          text: "📊 VIEW FULL ANALYTICS",
           url: `https://alpha.vybe.network/tokens/${gem.mintAddress}`,
-        },
+        }
       ],
       [
         {
-          text: "🚫 Stop Gem Alerts",
-          callback_data: `untrack_gems:${walletAddress}`,
+          text: "🔎 ANALYZE THIS TOKEN",
+          callback_data: `analyze_token:${gem.mintAddress}`,
         },
+        {
+          text: "🚫 STOP GEM ALERTS",
+          callback_data: `untrack_gems:${walletAddress}`,
+        }
       ],
     ],
   };
-
+  
   return {
     text: message,
     keyboard: inlineKeyboard,
@@ -345,4 +355,6 @@ module.exports = {
   formatLowCapGemsMessage,
   formatNewGemAlertMessage,
   formatUSD,
+  formatTokenInfo, // Export additional utility functions
+  formatGemDetails
 };
