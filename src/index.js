@@ -19,6 +19,12 @@ const { handleListWallets, handleWalletPerformanceCallback } = require('./comman
 const { handleUntrackWalletCommand, handleUntrackWalletInput } = require('./commands/untrackWallet');
 const { handleWalletPerformance, handleWalletPerformanceInput } = require('./commands/walletPerformance');
 const { handleLowCapCommand, handleLowCapInput, analyzeLowCapGems } = require('./commands/lowCapGems');
+const { handleStatusCommand, handleHealthCommand, handleMetricsCommand, handleMemoryCommand } = require('./commands/status');
+
+// Import monitoring services
+const monitoringService = require('./services/monitoringService');
+const apiService = require('./services/apiService');
+const messageDeliveryService = require('./services/messageDeliveryService');
 
 // Global references for the server routes to access
 let globalBot = null;
@@ -41,7 +47,29 @@ async function initializeApp() {
 
         // Store bot reference globally
         globalBot = bot;
-        
+
+        // Wrap bot.sendMessage to track delivery metrics
+        const originalSendMessage = bot.sendMessage.bind(bot);
+        bot.sendMessage = async (chatId, text, options) => {
+            const startTime = Date.now();
+            try {
+                const result = await originalSendMessage(chatId, text, options);
+                const deliveryTime = Date.now() - startTime;
+
+                // Record successful message delivery
+                messageDeliveryService.recordSuccess(deliveryTime);
+
+                return result;
+            } catch (error) {
+                const deliveryTime = Date.now() - startTime;
+
+                // Record failed message delivery
+                messageDeliveryService.recordFailure(deliveryTime);
+
+                throw error;
+            }
+        };
+
         // Track bot state
         let botActive = true;
         
@@ -65,7 +93,11 @@ async function initializeApp() {
             { command: 'setthreshold', description: 'Set whale alert threshold' },
             { command: 'enablealerts', description: 'Enable specific alerts' },
             { command: 'disablealerts', description: 'Disable specific alerts' },
-            { command: 'untrackgems', description: 'Untrack gem alerts for a wallet' }
+            { command: 'untrackgems', description: 'Untrack gem alerts for a wallet' },
+            { command: 'status', description: 'View system status and health' },
+            { command: 'health', description: 'View system health (alias for status)' },
+            { command: 'metrics', description: 'View detailed system metrics (admin only)' },
+            { command: 'memory', description: 'View Redis memory status (admin only)' }
         ]);
 
         // Handle messages with improved error handling
@@ -76,11 +108,17 @@ async function initializeApp() {
                 const userId = msg.from.id;
                 const userState = stateManager.getState(userId);
 
+                // Track message for monitoring
+                monitoringService.recordMessage(userId);
+
                 // Handle commands
                 if (msg.text.startsWith('/')) {
                     const text = msg.text;
                     const command = text.split(' ')[0].slice(1).toLowerCase();
-                    
+
+                    // Track command for monitoring
+                    monitoringService.recordCommand(userId);
+
                     // Clear any existing state when a command is received
                     if (userState) {
                         stateManager.clearState(userId);
@@ -162,6 +200,18 @@ async function initializeApp() {
                         case 'lowcap':
                             await handleLowCapCommand(bot, msg);
                             break;
+                        case 'status':
+                            await handleStatusCommand(bot, msg);
+                            break;
+                        case 'health':
+                            await handleHealthCommand(bot, msg);
+                            break;
+                        case 'metrics':
+                            await handleMetricsCommand(bot, msg);
+                            break;
+                        case 'memory':
+                            await handleMemoryCommand(bot, msg);
+                            break;
                         default:
                             // Handle unknown commands
                             await bot.sendMessage(msg.chat.id, '❌ Unknown command. Use /help to see available commands.');
@@ -194,6 +244,10 @@ async function initializeApp() {
                 }
             } catch (error) {
                 logger.error('Error handling message:', error);
+
+                // Track error for monitoring
+                monitoringService.recordError();
+
                 try {
                     await bot.sendMessage(msg.chat.id, 'Sorry, something went wrong. Please try again later.');
                 } catch (sendError) {
@@ -412,19 +466,7 @@ async function initializeApp() {
             }
         }, 60000); // Check every minute
         
-        // Initialize Twitter Bot (if explicitly enabled in .env)
-        if (process.env.TWITTER_BOT_ENABLED === 'true') {
-            const twitterBot = require('./vybewhale-twitter-bot');
-            twitterBot.initializeTwitterBot().then(initialized => {
-                if (initialized) {
-                    logger.info('Twitter bot initialized and running autonomously');
-                } else {
-                    logger.info('Twitter bot initialization failed');
-                }
-            });
-        } else {
-            logger.info('Twitter bot is disabled. Set TWITTER_BOT_ENABLED=true in .env to enable it.');
-        }
+
         
         // Return cleanup resources
         return {
@@ -444,16 +486,7 @@ async function initializeApp() {
 process.on('SIGINT', async () => {
     logger.info('Received SIGINT signal, shutting down...');
     try {
-        // Shutdown Twitter Bot if running
-        if (process.env.TWITTER_BOT_ENABLED === 'true') {
-            try {
-                const twitterBot = require('./vybewhale-twitter-bot');
-                twitterBot.shutdownTwitterBot();
-                logger.info('Twitter bot shutdown complete');
-            } catch (twitterError) {
-                logger.error('Error shutting down Twitter bot:', twitterError);
-            }
-        }
+
         
         // When running locally, exit properly
         if (!process.env.RENDER) {
@@ -892,3 +925,4 @@ async function handleGemCallbacks(bot, query) {
         });
     }
 }
+

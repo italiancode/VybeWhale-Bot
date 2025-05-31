@@ -28,6 +28,10 @@ const handler = async (bot, msg) => {
 /untrackgems [ADDRESS] - Stop tracking gem alerts for a wallet
 /setthreshold [amount] - Set whale alert threshold (USD)
 
+*System Status:*
+/status - View system health and performance metrics
+/health - View system health (alias for status)
+
 *Examples:*
 • /token So11111111111111111111111111111111111111112
 • /whale EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v

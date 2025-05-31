@@ -438,29 +438,6 @@ function formatTokenInfo(tokenInfo, holderData, topHolders = []) {
         message += `• Largest Holder: ${holderName} (${holderPercentage}%)\n`;
       }
     }
-    
-    // Calculate exchange holdings if available
-    const exchangeHolders = topHolders.filter(
-      (h) =>
-        h.ownerName &&
-        (h.ownerName.includes("Exchange") ||
-          h.ownerName.includes("Binance") ||
-          h.ownerName.includes("FTX") ||
-          h.ownerName.includes("Coinbase") ||
-          h.ownerName.includes("Kucoin") ||
-          h.ownerName.includes("Kraken") ||
-          h.ownerName.includes("Huobi") ||
-          h.ownerName.includes("OKX") ||
-          h.ownerName.includes("Gate"))
-    );
-    
-    if (exchangeHolders.length > 0) {
-      const exchangeConcentration = exchangeHolders.reduce((total, holder) => {
-        return total + (parseFloat(holder.percentageOfSupplyHeld) || 0);
-      }, 0);
-      
-      message += `• Exchange Holdings: ${exchangeConcentration.toFixed(2)}%\n`;
-    }
   } else if (hasPrice || hasMarketCap) {
     // If we have market data but no whale data, add a note about it
     message += `\n🐋 *Whale Data*\n`;
